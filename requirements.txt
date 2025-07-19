@@ -1,0 +1,15 @@
+opencv_python
+numpy
+astropy
+lsq-ellipse==2.0.1
+pyside6==6.9.0
+pyqtgraph
+PyYAML
+scipy
+requests
+scikit-image
+scipy
+pillow
+matplotlib
+
+
