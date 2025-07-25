@@ -1,12 +1,12 @@
-name: Build linux Executable (onedir)
+name: Build Windows Executable (onedir)
 
 on:
   workflow_dispatch:  # ⬅️ permet de lancer manuellement
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    
+  build-windows:
+    runs-on: windows-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,19 +33,25 @@ jobs:
       - name: Build with PyInstaller (.spec)
         run: pyinstaller inti.spec
 
-      - name: Liste les fichiers générés
-        run: ls -lh dist/inti/
-        
+      - name: Vérifier que le fichier a été généré
+        run: |
+          import sys
+          import os
+          if not os.path.exists("dist/inti/inti.exe"):
+              sys.exit(1)
+        shell: python
+
       - name: Copier le PDF et le dossier d'exemples
         run: |
-          cp inti_om_FR.pdf dist/inti/
+          copy inti_om_FR.pdf dist\inti\
 
       - name: Créer le fichier ZIP
         run: |
-          zip -r inti-linux.zip dist/inti
+          powershell Compress-Archive -Path dist\inti\* -DestinationPath inti-windows.zip
           
-      - name: Upload artefact sans zip imbriqué
+      - name: Upload Windows onedir build
         uses: actions/upload-artifact@v4
         with:
-          name: inti-linux
-          path: inti-linux.zip
+          name: inti-windows
+          path: dist/inti/
+      
