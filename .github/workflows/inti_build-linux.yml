@@ -6,7 +6,7 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -36,7 +36,7 @@ jobs:
       - name: Liste les fichiers générés
         run: ls -lh dist/inti/
         
-       - name: Copier le PDF et le dossier d'exemples
+      - name: Copier le PDF et le dossier d'exemples
         run: |
           cp inti_om_FR.pdf dist/inti/
 
