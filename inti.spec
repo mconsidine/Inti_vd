@@ -1,14 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 block_cipher=None
 
+import os
+base_path = os.getcwd()
+icon_path = os.path.join(base_path, 'intipartner.ico')
+
 a = Analysis(
-    ['inti_qt.py'],
+    ['inti.py'],
     pathex=[],
     binaries=[],
     datas=[('inti_qt.ui','.'),('gong.ui','.'),
 	('img_qt.ui','.'),('trame.ui','.'),('calc.ui','.'),
 	('zoom.ui','.'),('grid.ui','.'),('profil_qt.ui','.'),
-	('inti_logo.png','.'),('config_save.ui','.'), ('crop_box.ui','.'),('param.ui','.')],
+	('inti_logo.png','.'),('config_save.ui','.'), ('crop_box.ui','.'),('param.ui','.'),
+	('matplotlib_cache/fontlist-v330.json', 'matplotlib_cache'),
+	('matplotlib_cache/fontlist-v390.json', 'matplotlib_cache')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -24,12 +30,12 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='inti_qt',
+    name='inti',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True, icon="C:\\Users\\valer\\codepy\\inti_qt\\inti_logo4.ico",
+    console=True, icon=icon_path,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
@@ -43,5 +49,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='inti_qt',
+    name='inti',
 )
