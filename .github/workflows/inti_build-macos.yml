@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # ⬅️ permet de lancer manuellement
 
 jobs:
-  build-windows:
+  build-macos:
     runs-on: macos-latest
 
     steps:

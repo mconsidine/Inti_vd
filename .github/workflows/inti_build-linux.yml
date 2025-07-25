@@ -4,7 +4,7 @@ on:
   workflow_dispatch:  # ⬅️ permet de lancer manuellement
 
 jobs:
-  build-windows:
+  build-linux:
     runs-on: ubuntu-latest
 
     steps:
@@ -42,10 +42,10 @@ jobs:
 
       - name: Créer le fichier ZIP
         run: |
-          zip -r inti_partner-linux.zip dist/inti
+          zip -r inti-linux.zip dist/inti
           
       - name: Upload artefact sans zip imbriqué
         uses: actions/upload-artifact@v4
         with:
           name: inti-linux
-          path: inti_linux.zip
+          path: inti-linux.zip
