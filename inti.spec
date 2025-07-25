@@ -3,7 +3,7 @@ block_cipher=None
 
 import os
 base_path = os.getcwd()
-icon_path = os.path.join(base_path, 'intipartner.ico')
+icon_path = os.path.join(base_path, 'inti_logo4.ico')
 
 a = Analysis(
     ['inti.py'],
