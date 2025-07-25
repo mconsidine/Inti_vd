@@ -1,4 +1,4 @@
-name: Build linux Executable
+name: Build linux Executable (onedir)
 
 on:
   workflow_dispatch:  # ⬅️ permet de lancer manuellement
