@@ -215,7 +215,7 @@ from Inti_functions import *
 #try :
     #from serfilesreader.serfilesreader import Serfile
 #except ImportError : 
-from serfilesreader import Serfile
+from serfilesreader_vhd import Serfile
     
 
 
@@ -679,8 +679,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                 mask = np.abs(residus) < sigma_clip * std
             
             # Calcul de l'erreur RMS
-            rms = np.sqrt(np.mean((MinX[mask] - fitted_x[mask])**2))
-            print(f"\nErreur RMS de l’ajustement polynome : {rms:.3f} pixels")
+            #rms = np.sqrt(np.mean((MinX[mask] - fitted_x[mask])**2))
+           # print(f"\nErreur RMS de l’ajustement polynome : {rms:.3f} pixels")
 
         else :
             # test rms -no diff, idem sous ISIS
