@@ -51,6 +51,8 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
+Version 6.6g - ohp
+- supprime sauvegarde du tab current
 
 Version 6.6f - 15 juiller 2025
 - compil trad
@@ -301,6 +303,7 @@ class main_wnd_UI(QMainWindow) :
         
         # finalement on demarre toujours sur tab general
         self.current_tab= 0
+        self.ui.tab_main.setCurrentIndex(0)
         
         # recupere si un fichier est passé
         #print((f"Fichier reçu : {fichier if fichier else 'Aucun'}"))
@@ -314,8 +317,7 @@ class main_wnd_UI(QMainWindow) :
             else :
                 self.inti_go_one(fichier, False)
             
-        # selectionne tab du tab widget et le widget panel depuis settings app
-        self.ui.tab_main.setCurrentIndex(self.current_tab)
+            
         self.serfiles=[]
     
     def show(self) :
@@ -2374,6 +2376,7 @@ class main_wnd_UI(QMainWindow) :
         else :
             self.langue='FR'
         
+        """
         if settings.value("App/tab_index") is not None :
             self.current_tab= settings.value("App/tab_index")
             
@@ -2381,6 +2384,7 @@ class main_wnd_UI(QMainWindow) :
             self.current_tab=0
             
         self.ui.tab_main.setCurrentIndex(self.current_tab)     
+        """
         
         if settings.value("App/save") is not None :
             valeur_json= settings.value("App/save", "{}")
@@ -2428,7 +2432,7 @@ class main_wnd_UI(QMainWindow) :
         settings.setValue("MainWindow/geometry", self.ui.saveGeometry())
         settings.setValue("MainWindow/windowState", self.ui.saveState())
         settings.setValue("App/lang", self.langue)
-        settings.setValue("App/tab_index", self.ui.tab_main.currentIndex())
+        #settings.setValue("App/tab_index", self.ui.tab_main.currentIndex())
         settings.setValue("App/save", json.dumps(self.files_to_save))
         settings.setValue("App/db", json.dumps(self.bass_entete))
     
