@@ -53,6 +53,7 @@ import matplotlib.pyplot as plt #only for debug
 """
 Version 6.6g - ohp
 - supprime sauvegarde du tab current
+- corrige erreur lancement dernier ser
 
 Version 6.6f - 15 juiller 2025
 - compil trad
@@ -135,8 +136,9 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="6.6f"
+        self.version ="6.6g"
         iv = ImageView # force le load d'ImageView avant QUILoader
+        # ne change rien...
         
         #fichier GUI par Qt Designer
         loader = QUiLoader()
@@ -302,8 +304,8 @@ class main_wnd_UI(QMainWindow) :
         print('INTI Version : ' + str(self.version))
         
         # finalement on demarre toujours sur tab general
-        self.current_tab= 0
-        self.ui.tab_main.setCurrentIndex(0)
+        self.current_tab= int(0)
+        self.ui.tab_main.setCurrentIndex(int(0))
         
         # recupere si un fichier est passé
         #print((f"Fichier reçu : {fichier if fichier else 'Aucun'}"))
@@ -510,7 +512,7 @@ class main_wnd_UI(QMainWindow) :
             #print(self.short_name(f))
             
         last_file = self.serfiles[-1]
-        fits_dateobs=get_date_ser(last_file)
+        fits_dateobs,FrameCount, scan_size=get_data_ser(last_file)
         self.ui.ori_date_text.setText(fits_dateobs)
         #print(fits_dateobs)
         angP, paramB0, longL0, RotCarr = angle_P_B0(fits_dateobs)
@@ -519,8 +521,9 @@ class main_wnd_UI(QMainWindow) :
         self.solar_dict['L0']=longL0
         self.solar_dict['Carr']=RotCarr 
         
-        if flag_go == "True" :
+        if flag_go :
             # go !
+            print("Go")
             self.inti_go()
          
     def inti_go(self) :
@@ -2375,16 +2378,6 @@ class main_wnd_UI(QMainWindow) :
             self.langue=settings.value("App/lang")
         else :
             self.langue='FR'
-        
-        """
-        if settings.value("App/tab_index") is not None :
-            self.current_tab= settings.value("App/tab_index")
-            
-        else :
-            self.current_tab=0
-            
-        self.ui.tab_main.setCurrentIndex(self.current_tab)     
-        """
         
         if settings.value("App/save") is not None :
             valeur_json= settings.value("App/save", "{}")
