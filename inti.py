@@ -1,8 +1,14 @@
 
 """
-Spyder Editor
+INTI application interface Qt
 
-This is a temporary script file.
+Recontruction automatique d'une image ou de plusieurs images monochromatiques 
+à partir d'un fichier video du spectre solaire
+ 
+Author : Valérie Desnoux
+
+Version post 6.4 en 2025
+
 """
 
 import sys
@@ -51,9 +57,11 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
-Version 6.6g - ohp
+Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
 - corrige erreur lancement dernier ser
+- amélioration rapidité inti_recon
+- ajout fonction blink et ajustement taille dans gong
 
 Version 6.6f - 15 juiller 2025
 - compil trad
@@ -75,7 +83,7 @@ Version 6.6+ - 28 juin 2025
 - evite saturation sur clahe
 - garde les seuils de crop 
 - trame image entiere
-- interpolation 4 points
+- amélioration interpolation 4 points
 - gestion nom _cont avec shift non nul
 - BASS2000 ajouts de mots-clefs
 - test deg 3 poly: aucune diff, reste en deg2, idem CB test ISIS
@@ -136,7 +144,7 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="6.6g"
+        self.version ="6.7"
         iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
@@ -2121,24 +2129,8 @@ class main_wnd_UI(QMainWindow) :
             img_data = requests.get(url).content
             nparr =np.frombuffer(img_data,np.uint8)
             img_gong=cv2.imdecode(nparr,cv2.IMREAD_GRAYSCALE)
+            hg,wg=img_gong.shape
             
-            self.mygong.show()
-            
-            w_w=self.myscreen_w*0.4
-            #r=self.myscreen_h/self.myscreen_w
-            w_h = (w_w*0.5)+9
-            if w_h > self.myscreen_h :
-                w_w=w_h*2
-            self.mygong.ui.resize(int(w_w), int(w_h))
-            
-
-            pixmap = QtGui.QPixmap()
-            pixmap.loadFromData(img_data)
-            lbl_w, lbl_h= (self.mygong.ui.gong_gongimg_lbl.width(),self.mygong.ui.gong_gongimg_lbl.height())
-            pixmap.scaled(lbl_w, lbl_h,Qt.IgnoreAspectRatio)
-            self.mygong.ui.gong_gongimg_lbl.setPixmap(pixmap)
-            self.mygong.ui.gong_gongimg_lbl.adjustSize()
-            #web.open(r1+t)
             if os.path.exists(filename):
                 #web.open(filename)
                 #pixmap2 = QtGui.QPixmap(filename)
@@ -2149,26 +2141,67 @@ class main_wnd_UI(QMainWindow) :
                     pad_h= (iw-ih)//2
                     pad_zone = np.zeros((pad_h,iw), dtype= 'uint16')
                     img_disk= np.concatenate((pad_zone,img_disk,pad_zone))
-                img_disk_8bits=(img_disk/256).astype(np.uint8)
-                myqimage = QtGui.QImage(img_disk_8bits, iw, iw ,iw, QtGui.QImage.Format_Grayscale8)
-                pixmap2= QtGui.QPixmap.fromImage(myqimage)
-                lbl_w, lbl_h= (self.mygong.ui.gong_myimg_lbl.width(),self.mygong.ui.gong_myimg_lbl.height())
-  
-                pixmap2.scaled(lbl_w, lbl_w,Qt.IgnoreAspectRatio)
-                self.mygong.ui.gong_myimg_lbl.setPixmap(pixmap2)
-                self.mygong.ui.gong_myimg_lbl.adjustSize()
+                    
             
-           
+            
+            # traitement images pour trouver les deux diamètres img_gong et img_disk
+            diam_gong = img_getdiam (img_gong)
+            diam_disk = img_getdiam (img_disk)
+            
+            # mettre les deux images à la même dimension centrée et avec marge de 100 pixels
+            ratio =diam_disk/diam_gong
+            img_gong=cv2.resize(img_gong,(int(hg*ratio),int(wg*ratio)), cv2.INTER_AREA)            
+            diam_gong = int(diam_gong *ratio)
+            img_gong = img_crop_diam(img_gong, diam_gong, marge=100)
+            img_disk = img_crop_diam(img_disk, diam_disk, marge=100)
+            gh, gw = img_gong.shape
+            ih, iw = img_disk.shape
+            
+            # affiche iamge gong
+            pixmap = QtGui.QPixmap()
+            #pixmap.loadFromData(img_gong)
+            img_gong = np.ascontiguousarray(img_gong)
+            myqgong = QtGui.QImage(img_gong, gw, gh, img_gong.strides[0],QtGui.QImage.Format_Grayscale8 )
+            pixmap= QtGui.QPixmap.fromImage(myqgong)
+            
+            lbl_w, lbl_h= (self.mygong.ui.gong_gongimg_lbl.width(),self.mygong.ui.gong_gongimg_lbl.height())
+            pixmap.scaled(lbl_w, lbl_h,Qt.IgnoreAspectRatio)
+            self.mygong.ui.gong_gongimg_lbl.setPixmap(pixmap)
+            self.mygong.ui.gong_gongimg_lbl.adjustSize()
+
+            #affiche image disk
+            img_disk_8bits=(img_disk/256).astype(np.uint8)
+            img_disk_8bits = np.ascontiguousarray(img_disk_8bits)
+            myqimage = QtGui.QImage(img_disk_8bits, iw, iw ,iw, QtGui.QImage.Format_Grayscale8)
+            pixmap2= QtGui.QPixmap.fromImage(myqimage)
+            
+            lbl_w, lbl_h= (self.mygong.ui.gong_myimg_lbl.width(),self.mygong.ui.gong_myimg_lbl.height()) 
+            pixmap2.scaled(lbl_w, lbl_w,Qt.IgnoreAspectRatio)
+            self.mygong.ui.gong_myimg_lbl.setPixmap(pixmap2)
+            self.mygong.ui.gong_myimg_lbl.adjustSize()
+          
             #print(self.mygong.ui.gong_myimg_lbl.size())
             
             try :
                 # detection des inversions - uniquement sur disque entier et sur H-alpha
-                inversion = gong_orientation_auto(img_gong, img_disk)
+                inversion = gong_orientation_auto(img_gong, img_disk, diam_disk)
                 #print("Inversions : "+inversion)
                 self.mygong.update_inversions(inversion)
                 self.mygong.ui.finished.connect(self.ori_get_inversions)
             except:
-                print('Erreur détection inversions')      
+                print('Erreur détection inversions')    
+                
+            # on affiche la fenetre
+            self.mygong.show()
+            
+            w_w=self.myscreen_w*0.4
+            #r=self.myscreen_h/self.myscreen_w
+            w_h = (w_w*0.5)+9
+            if w_h > self.myscreen_h :
+                w_w=w_h*2
+            self.mygong.ui.resize(int(w_w), int(w_h))
+            
+            
         else :
             print("Pas de fichier sélectionné")                                          
     
@@ -2725,6 +2758,7 @@ class gong_wnd(QDialog) :
         # connect signaux boutons
         self.ui.gong_GD_btn.clicked.connect(self.gong_gd)
         self.ui.gong_HB_btn.clicked.connect(self.gong_hb)
+        self.ui.gong_blink_btn.clicked.connect(self.gong_blink)
         #self.ui.gong_apply_btn.clicked.connect(self.update_ori_image)
         
         # init nb inversions
@@ -2770,8 +2804,17 @@ class gong_wnd(QDialog) :
         inv_to_return = [self.nb_ns%2, self.nb_ew%2]
         return inv_to_return
     
+    def gong_blink (self) :
+        self.pixmap_disk = self.ui.gong_myimg_lbl.pixmap()
+        if self.ui.gong_blink_btn.isChecked() :
+            self.ui.gong_gongimg_lbl.setPixmap (self.pixmap_disk)
+        else :
+            self.ui.gong_gongimg_lbl.setPixmap (self.pixmap_gong)
+    
     def show(self):
         self.ui.show()
+        
+        self.pixmap_gong = self.ui.gong_gongimg_lbl.pixmap()
         
 
 
@@ -3533,8 +3576,32 @@ def angle_P_B0 (date_utc):
     
     return(str(round(P,2)),str(round(Bo,2)), str(round(L0,2)), str(int(Rot_Carrington)))
 
+def img_getdiam (img) :
+    # detection des rayons
+    axis=0 
+    offset=0
+    flag_disk=True
+    ih,iw=img.shape
+    m= ih//2
+    img_c = img[m-ih//10:m+ih//10,50:-50]
+    img_c = cv2.GaussianBlur(img_c,(101,101), sigmaX=50)
+    a1,a2 = detect_bord (img_c, axis, offset, flag_disk)
+    diam = a2-a1
+    return diam
 
-def gong_orientation_auto(img1, img2) :
+def img_crop_diam (img, diam, marge) :
+    # image du disque est centré
+    # si image disque etait un disque partiel il aura au préalable été paddé
+    
+    ih, iw = img.shape
+    c=ih//2
+    half = (diam + marge) // 2
+    
+    img_crop = img[c-half : c+half, c-half : c+half]
+    
+    return img_crop
+
+def gong_orientation_auto(img1, img2, diam) :
     # img1 image jpg de gong en 8 bits
     # img2 image _disk de inti en 16 bits
     
@@ -3546,62 +3613,34 @@ def gong_orientation_auto(img1, img2) :
     img1= (((img1-sb)/(255-sb))*255).astype(np.uint8)
     img2=(img2 / 256).astype(np.uint8)
     
-    # detection des rayons
-    axis=0 
-    offset=0
-    flag_disk=True
-    ih1,iw1=img1.shape
-    m1= ih1//2
-
-    ih2,iw2=img2.shape
-    m2=ih2//2
-
-    img1_c = img1[m1-ih1//10:m1+ih1//10,50:-50]
-    img1_c = cv2.GaussianBlur(img1_c,(101,101), sigmaX=50)
-    img2_c = img2[m2-ih2//10:m2+ih2//10,5:-5]
-
-
-    a1,a2 = detect_bord (img1_c, axis, offset, flag_disk)
-    b1,b2 = detect_bord (img2_c, axis, offset, flag_disk)
-    #print(a1,a2)
-    #print(b1,b2)
-    ratio = (b2-b1)/(a2-a1)
-    #print(ratio)
-    img_gong=cv2.resize(img1,(int(ih1*ratio),int(iw1*ratio)), cv2.INTER_AREA)
-    h,w=img_gong.shape
-    new_h, new_w = img2.shape
-    
-    top =(new_h-h)//2
-    bottom = new_h-h-top
-    left=(new_w-w)//2
-    right=new_w-w-left
-    
-    if top > 0 :
-        img_gong= cv2.copyMakeBorder(img_gong, top,bottom,left, right, borderType=cv2.BORDER_CONSTANT, value=1)
-    else :
-        top=-top
-        bottom=-bottom
-        left=-left
-        right=-right
-        img2= cv2.copyMakeBorder(img2, top,bottom,left, right, borderType=cv2.BORDER_CONSTANT, value=1)
-    
-    
+    gh,gw=img1.shape
+    ih, iw = img2.shape
+        
     if debug :
-        plt.imshow(img_gong, cmap="grey")
+        plt.imshow(img1, cmap="grey")
         plt.show()
         plt.imshow(img2, cmap="grey")
         plt.show()
 
-    rayon=(b2-b1)//2
+    #rayon=(b2-b1)//2
+    rayon=diam//2
     cote=int(rayon*(2**0.5))
     mi_cote=(cote//2)
-    c= new_h//2
+    c= ih//2
+    
     # carré inscrit est c-mi_cote
     img2=img2[c-mi_cote:c+mi_cote,c-mi_cote:c+mi_cote]
+    img_g=np.array(img1[c-mi_cote:c+mi_cote,c-mi_cote:c+mi_cote], dtype='uint8')
     
-    img_gong=np.array(img_gong[c-mi_cote:c+mi_cote,c-mi_cote:c+mi_cote], dtype='uint8')
-    img_g=np.copy(img_gong)
-
+    # image Gong a beaucoup de détails
+    #img_g=cv2.GaussianBlur(img_g, (11,11), 5)
+    
+    # test augmentation de contrast avec clahe
+    # augmentation contrast sur image gong et disk
+    clahe = cv2.createCLAHE(clipLimit=1, tileGridSize=(2,2)) # cliplimit was 0.8
+    img_g = clahe.apply(img_g)
+    img2=clahe.apply(img2)
+    
     r_lum=np.mean(img2)/np.mean(img_g)
     #print("r_lum : ",r_lum)
 
@@ -3621,12 +3660,7 @@ def gong_orientation_auto(img1, img2) :
 
 
     inv=['None','EW','NS','NS-EW']
-    # image Gong a beaucoup de détails
-    img_g=cv2.GaussianBlur(img_g, (11,11), 5)
-    # test augmentation de contrast avec clahe
-    clahe = cv2.createCLAHE(clipLimit=2, tileGridSize=(2,2)) # cliplimit was 0.8
-    img_g = clahe.apply(img_g)
-    img22=clahe.apply(img22)
+
     # calcul de deux scores
     score_PSNR =[cv2.PSNR(img_g, img22),cv2.PSNR(img_g, np.fliplr(img22)),
                 cv2.PSNR(img_g, np.flipud(img22)),cv2.PSNR(img_g, np.flipud(np.fliplr(img22)))]

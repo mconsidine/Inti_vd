@@ -3,8 +3,33 @@
 Created on Thu Dec 31 11:42:32 2020
 
 @author: valerie desnoux
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.io import fits
+from scipy.interpolate import interp1d
+from scipy.ndimage import map_coordinates
+import scipy.ndimage as ndimage
+import os
+#import time
+from scipy.signal import savgol_filter
+import cv2
+import sys
+import math
+import config as cfg
+from datetime import datetime
+import time
 
 
+from Inti_functions import *
+#try :
+    #from serfilesreader.serfilesreader import Serfile
+#except ImportError : 
+from serfilesreader_vhd import Serfile
+
+
+"""
 ------------------------------------------------------------------------
 Version 5.1 paris 1 er nov
 - ajout mode auto dans POl (magnetogramme)
@@ -194,28 +219,6 @@ seuil=50% du max
 
 
 """
-
-import numpy as np
-import matplotlib.pyplot as plt
-from astropy.io import fits
-from scipy.interpolate import interp1d
-import scipy.ndimage as ndimage
-import os
-#import time
-from scipy.signal import savgol_filter
-import cv2
-import sys
-import math
-import config as cfg
-from datetime import datetime
-import time
-
-
-from Inti_functions import *
-#try :
-    #from serfilesreader.serfilesreader import Serfile
-#except ImportError : 
-from serfilesreader_vhd import Serfile
     
 
 
@@ -234,6 +237,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     """
     #plt.gray()              #palette de gris si utilise matplotlib pour visu debug
     
+    # flag pour logger les temps d'execution
+    debug_time = True
     t0=time.time()
     
     clearlog()
@@ -320,6 +325,11 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     base=os.path.basename(serfile)
     basefich='_'+os.path.splitext(base)[0]
     
+    # log timing execution pour analyse
+    if debug_time :
+        tim = open("timing"+basefich+".txt", "w", encoding="utf-8")
+        tim.write(serfile+'\n')
+    
     if shift != 0 :
         #add shift value in filename to not erase previous file
         basefich=basefich+'_dp'+str(int(shift)) # ajout '_' pour fichier en tete d'explorer
@@ -339,7 +349,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     bitdepth=scan.getHeader()['PixelDepthPerPlane']
     #ser_header=scan._readExistingHeader()
     #print(ser_header)
+    dtype=np.uint16
     if bitdepth==8:
+        dtype = np.uint8
         if cfg.LG == 1:
             logme('Acquisition 8 bits.')
         else:
@@ -372,8 +384,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         else :
             logme('Error reading date-time SER file')
     
-    ok_flag=True              # Flag pour sortir de la boucle de lexture avec exit
-    FrameIndex=1              # Index de trame    
+    #ok_flag=True              # Flag pour sortir de la boucle de lecture avec exit
+    #FrameIndex=1              # Index de trame    
 
     # fichier ser avec spectre raies verticales ou horizontales (flag true)
     if Width>Height:
@@ -443,6 +455,20 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     #debug
     #t0=float(time.time())
     
+    
+    # test lecture fichier ser en une passe
+    # Mappe directement les données en mémoire (pas de lecture trame par trame)
+    data_offset=178
+    
+    frame_size = Width * Height
+    arr = np.memmap(serfile, dtype=dtype, mode="r",
+                    offset=data_offset,
+                    shape=(FrameCount, frame_size))
+
+    # Reshape en tableau (n_frames, height, width)
+    frames = arr.reshape((FrameCount, Height, Width))
+    
+    
     """
     ---------------------------------------------------------------------------
     Calcul image moyenne de toutes les trames
@@ -451,61 +477,42 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
 
     if bitdepth == 8 :
         factor=256 # was 256 
+        frames = frames * 256
     else:
         factor=1
+        
+    if flag_rotate :
+
+        frames = np.flip(frames.swapaxes(1, 2), axis=1)
+        
     
     #initialize le tableau qui recevra l'image somme de toutes les trames
+    mydata_opt=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
     mydata=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
     mytrame=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
     kept_frame=0
     
     # liste des moyennes
     mean_list=[]
+    kept_frame = 0
+    kept_frame_opt = 0
     
-    while FrameIndex < FrameCount and ok_flag:
-        try :
-            num = np.array(scan.readFrameAtPos(FrameIndex), dtype='uint16')
-        except:
-            print(FrameIndex)
-
-        if flag_rotate:
-            num=np.rot90(num)
-        
-        num=num*factor
-        #ajoute les trames pour creer une image haut snr pour extraire
-        #les parametres d'extraction de la colonne du centre de la raie et la
-        #corriger des distorsions
-        frame_mean=np.mean(num)
+    for i, frame in enumerate(frames) :
+            
+        frame_mean=np.mean(frame)
+        mydata += frame
+        kept_frame += 1
         
         if frame_mean>3000 : # seuil arbitraire
-            mydata=np.add(num,mydata)
-            kept_frame=kept_frame+1
-        
-        #increment la trame et l'offset pour lire trame suivant du fichier .ser
-        FrameIndex=FrameIndex+1
-        
-        #f.write(str(frame_mean)+'\n')
+            mydata_opt += frame
+            kept_frame_opt += 1
+
         mean_list.append(frame_mean) # au cas ou on voudrait utiliser le profil
         
-    if kept_frame < 500 :
-        # on recommence mais sans seuil bug fix
-        kept_frame=0
-        FrameIndex=1              # Index de trame    
-
-        while FrameIndex < FrameCount and ok_flag:
-            try :
-                num = scan.readFrameAtPos(FrameIndex)
-            except:
-                print(FrameIndex)
-            if flag_rotate:
-                num=np.rot90(num)
-            num=num*factor
-            frame_mean=np.mean(num)
-            mydata=np.add(num,mydata)
-            kept_frame=kept_frame+1
-            #increment la trame et l'offset pour lire trame suivant du fichier .ser
-            FrameIndex=FrameIndex+1
-    
+    if kept_frame_opt > 500 :
+        mydata = np.copy(mydata_opt)
+        kept_frame = kept_frame_opt
+          
     #print('Frame kept :', kept_frame, 'over ', FrameIndex)
 
     # calcul de l'image moyenne
@@ -536,19 +543,14 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         if flag_corona :
             print("Trame sel : "+ str(deb1)+' '+str(deb2))
         
-        for i in range (tram1+deb1, tram1+deb2) :
-            num = np.array(scan.readFrameAtPos(i), dtype='uint16')
-            if flag_rotate:
-                num=np.rot90(num)
-            num=num*factor
-            #ajoute les trames 
-            mytrame=np.add(num,mytrame)
+        for i in range (tram1+deb1, tram1+deb2) :          
+            mytrame += frame[i]
         
-        nbtrame= deb2- (deb1)
+        nbtrame = deb2- (deb1)
         # et on la sauve avec mode couronne ou pas
-        mytrame=mytrame/(nbtrame)  
-        mytrame=np.array(mytrame, dtype='uint16')
-        mytrame=np.reshape(mytrame, (ih, iw))   # Forme tableau X,Y de l'image moyenne
+        mytrame = mytrame/(nbtrame)  
+        mytrame = np.array(mytrame, dtype='uint16')
+        mytrame = np.reshape(mytrame, (ih, iw))   # Forme tableau X,Y de l'image moyenne
         # mode couronne pour calcul polynome
         if flag_corona :
             savefich="Complements"+os.path.sep+basefich+'_mean'  
@@ -591,7 +593,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
 
     t1=time.time()
     dt=t1-t0
-    #print('fin lecture : '+"{:.2f}".format(dt)+' s')
+    if debug_time : tim.write('fin lecture : '+"{:.2f}".format(dt)+'\n')
   
     """
     ----------------------------------------------------------------------------
@@ -845,7 +847,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
 
     t2=time.time()
     dt=t2-t1
-    #print('calcul poly : '+"{:.2f}".format(dt)+' s')
+    if debug_time : tim.write('calcul poly : '+"{:.2f}".format(dt)+'\n')
     
     """
     ----------------------------------------------------------------------------
@@ -854,8 +856,10 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     ----------------------------------------------------------------------------
     ----------------------------------------------------------------------------
     """
-     
     FrameIndex=0            # Index de trame
+    
+    """
+    
 
     if Width>Height:
         flag_rotate=True
@@ -866,8 +870,11 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         iw=Width
         ih=Height
         
+    
+    """
     FrameMax=FrameCount
     
+    ih , iw  = frames[0].shape
     Disk=[]
     
     # reduction de bruit - moyenne de 3 colonnes
@@ -897,28 +904,11 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         cv2.moveWindow('disk', int(iw*sc)+1, 0)
         #initialize le tableau qui va recevoir les intensités spectrale de chaque trame
         
-        
-        
-    
-    
-    
 
-    """    
-    # interpolation bilineaire
-    # init vector to speed up from Andrew & Doug Smiths BUIL2 calcul poids interpol
-    left_weights = np.ones(ih) - np.asarray(fit)[:, 1]
-    right_weights = np.ones(ih) - left_weights
-    
-    ind_l=[]
-    ind_r=[]
-    """
     x_floors=[]
     
     for s in range_dec:
-        
-
-           
-            
+      
         # indice de la partie entiere de la position avec eventuellement un decalage s
         x_floor = (np.asarray(fit)[:, 0] + np.ones(ih) * (LineRecal + s)).astype(int) # valeur entière de la position
         t=np.asarray(fit)[:, 1] # valeur decimale de la position
@@ -931,17 +921,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     
     
     # Lance la reconstruction du disk a partir des trames
-    while FrameIndex < FrameCount :
-        #t0=float(time.time())
-        img=np.array(scan.readFrameAtPos(FrameIndex), dtype='uint16')
-        img=img*factor
+    for FrameIndex, img in enumerate(frames) :
         
-        # si fente orientée verticale on remet le spectre à l'horizontal
-        if flag_rotate:
-            img=np.rot90(img)
-        
-        # si flag_display vrai montre trame en temps reel
-        
+        # si flag_display vrai montre trame en temps reel       
         if flag_display :
             if image_queue == None :
                 cv2.imshow('image', img)
@@ -954,18 +936,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         # Boucle sur les decalages
         i=0
         for i in range(0,len(range_dec)): 
-            
-            """
-            # vector slit
-            left_col = img[np.arange(ih), ind_l[i]]
-            right_col = img[np.arange(ih), ind_r[i]]
-            # prevent saturation overflow for saturated areas
-            #left_col[left_col>64500]=64500
-            #right_col[right_col>64500]=64500
-        
-            IntensiteRaie = (left_col*left_weights + right_col*right_weights)
-            """
-        
+                  
             pt0=np.float64(img[np.arange(ih), x_floors[i]-1])
             pt1=np.float64(img[np.arange(ih), x_floors[i]])
             pt2=np.float64(img[np.arange(ih), x_floors[i]+1])
@@ -978,10 +949,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             IntensiteRaie=np.clip(IntensiteRaie,0,65535).astype(np.uint16)
 
             # Ajoute au tableau disk 
-            
             Disk[i][:,FrameIndex]=IntensiteRaie
-           
-        
+  
         
         # Display reconstruction of the disk refreshed every 30 lines
         refresh_lines=int(20)
@@ -997,7 +966,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             else : 
                 image_queue.put(("disk",disk_display, FrameCount))
     
-        FrameIndex=FrameIndex+1
+        #FrameIndex=FrameIndex+1
    
 
     # on signale la fin de la transmission dans la queue
@@ -1051,7 +1020,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
     t3=time.time()
     dt=t3-t2
-    #print('image raw : '+"{:.2f}".format(dt)+' s')
+    if debug_time : tim.write('image raw : '+"{:.2f}".format(dt)+'\n')
     
     frames=[]
     msg=[]
@@ -1480,7 +1449,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         t4=time.time()
         dt=t4-t3
-        #print('flat : '+"{:.2f}".format(dt)+' s')
+        if debug_time : tim.write('flat : '+"{:.2f}".format(dt)+'\n')
        
         """
         -----------------------------------------------------------------------
@@ -1515,28 +1484,35 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             # pour avoir les coordonnées y du grand axe horizontal
             # on cherche la projection de la taille max du soleil en Y et en X
 
-            if y1<=15 :
-                background= np.percentile(img2, 15)
-                #print("Percentile h 15: ",background)
-                img_dark1=np.full((2,iw), background)
-            else :
-                #img_dark1=img2[0:y1-10,]
-                img_dark1=img2[0:10,]
-            if y2>ih-15 :
-                background= np.percentile(img2, 15)
-                #print("Percentile b 15: ",background)
-                img_dark2=np.full((2,iw), background)
-
-            else :
-                #img_dark2=img2[y2+10:,]
-                img_dark2=img2[-10:,]
-                
-            img_dark=np.concatenate((img_dark1,img_dark2))
-            img_fill1=np.mean(img_dark1,axis=0)
-            img_fill2=np.mean(img_dark2, axis=0)
-            background= np.percentile(img_dark, 55) # was 55
-            #background= np.percentile(img2, 15)
-            #print("zone fond: ",background)
+            
+            
+            # Taille de l'image
+            #ih, iw = img2.shape
+            
+            # Pré-calcul du percentile bas si nécessaire
+            if y1 <= 15 or y2 > ih - 15:
+                perc15 = np.percentile(img2, 15)
+            
+            # Partie haute
+            if y1 <= 15:
+                img_dark1 = np.full((2, iw), perc15)
+            else:
+                img_dark1 = img2[0:10, :]
+            
+            # Partie basse
+            if y2 > ih - 15:
+                img_dark2 = np.full((2, iw), perc15)
+            else:
+                img_dark2 = img2[-10:, :]
+            
+            # Calculs des moyennes de remplissage (1D)
+            #img_fill1 = img_dark1.mean(axis=0)
+            #img_fill2 = img_dark2.mean(axis=0)
+            
+            # Fond basé sur l'ensemble des zones sombres
+            # Astuce : np.vstack évite un appel à np.concatenate avec tuple
+            img_dark = np.vstack((img_dark1, img_dark2))
+            background = np.percentile(img_dark, 55)
 
            
             # methode calcul angle de tilt avec XE ellipse fit
@@ -1578,46 +1554,34 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             
             #on force l'angle de tilt pour les prochaines images
             ang_tilt=AlphaDeg
-           
+
+    
+            #decale lignes images par rapport au centre
+            colref=round(((el_x1+el_x2)/2)+el_x1)
+            dymax=int(abs(TanAlpha)*(colref))
+              
+            # Ajout de padding en haut et en bas
+            img2 = np.pad(img2, ((dymax, dymax), (0, 0)), mode='constant', constant_values=background)
+            ih, iw = img2.shape
+            crop=int((TanAlpha)*iw)
             
-            # ne teste plus si correction de tilt si angle supérieur a 0.2 degres
-            if abs(AlphaDeg)>= 0.0 :
-                #decale lignes images par rapport au centre
-                colref=round(((el_x1+el_x2)/2)+el_x1)
-                dymax=int(abs(TanAlpha)*(colref))
-                #print ("background tilt : ", background)
-                #background= np.percentile(img2, 5)
-                #a=np.full((dymax,iw), background)
-                #b=a
-                a=np.atleast_2d(img_fill1).repeat(repeats=dymax, axis=0)
-                b=np.atleast_2d(img_fill2).repeat(repeats=dymax, axis=0)
-                img2=np.concatenate((a,img2,b))
-                ih=ih+dymax*2
-                crop=int((TanAlpha)*iw)
-                NewImg=np.empty((ih,iw))
-                for i in range(0,iw):
-                    x=img2[:,i]
-                    NewImg[:,i]=x
-                    y=np.arange(0,ih)
-                    dy=(i-colref)*TanAlpha
-                    ycalc = y + np.ones(ih)*dy # improvements TheSmiths
-                    f=interp1d(ycalc,x,kind='linear',fill_value=(background,background),bounds_error=False)
-                    xcalc=f(y)
-                    NewLine=xcalc
-                    NewImg[:,i]=NewLine
-                NewImg[NewImg<=0]=0  #modif du 19/05/2021 etait a 1000
-                img2=np.copy(NewImg)
-                
-                if dymax != 0 :
-                    img2[:dymax,]=a
-                    img2[-dymax:,]=b
-                
-                
-            else:
-                if cfg.LG == 1:
-                    logme('Alignement meilleur que 0.2°, correction de tilt non nécessaire.')
-                else:
-                    logme('Alignment better than 0.2°, tilt correction not necessary.')
+            # Grille de coordonnées
+            y = np.arange(ih)[:, None]   # forme (ih, 1)
+            x = np.arange(iw)[None, :]   # forme (1, iw)
+            dy = (x - colref) * TanAlpha # décalage vertical par colonne
+            
+            # Coordonnées à échantillonner
+            y_src = y - dy                     # (ih, iw)
+            x_src = np.broadcast_to(x, y_src.shape)
+            
+            # Interpolation bilinéaire (ordre=1)
+            NewImg = map_coordinates(img2, [y_src, x_src], order=1, cval=background)
+            
+            # Clamp à 0
+            NewImg[NewImg <= 0] = 0
+        
+            img2=np.copy(NewImg)
+
                    
         sfit_onlyfinal=True
         
@@ -1630,7 +1594,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         t5=time.time()
         dt=t5-t4
-        #print('tilt : '+"{:.2f}".format(dt)+' s')
+        if debug_time : tim.write('tilt : '+"{:.2f}".format(dt)+'\n')
         
         """
         ----------------------------------------------------------------
@@ -1660,11 +1624,11 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             else:
                 logme('Scaling SY/SX : '+"{:+.4f}".format(ratio))
             
-            NewImg, newiw=circularise2(img2,iw,ih,ratio)
+            NewImg, newiw = circularise2_opt(img2,iw,ih,ratio)
         
         else:
             # Forcer le ratio SY/SX
-            NewImg, newiw=circularise2(img2,iw,ih,ratio_fixe)
+            NewImg, newiw=circularise2_opt(img2,iw,ih,ratio_fixe)
 
             if cfg.LG == 1:
                 logme('Facteur d\'échelle fixe SY/SX : '+"{:+.4f}".format(ratio_fixe))
@@ -1683,15 +1647,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         frame=np.array(NewImg, dtype='uint16')
         #print('shape',frame.shape)
         
-        """
-        if sfit_onlyfinal==False:
-            # sauvegarde en fits de l'image rescaled
-            hdr['NAXIS1']=frame.shape[1]
-            hdr['NAXIS2']=frame.shape[0]
-            #img2=np.array(frame, dtype='uint16')
-            DiskHDU=fits.PrimaryHDU(frame,header=hdr)
-            DiskHDU.writeto(basefich+"_"+str(k)+'_scaled.fits', overwrite='True')
-        """
+       
        
         """
         ----------------------------------------------------------------------
@@ -1713,7 +1669,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             
             if abs(ratio-1)>=1 and k==0 and ratio_fixe==0: #0.01
                 logme('Ratio iteration2 :'+ str(ratio))
-                NewImg, newiw=circularise2(frame,newiw,ih,ratio)
+                NewImg, newiw=circularise2_opt(frame,newiw,ih,ratio)
                 frame=np.array(NewImg, dtype='uint16')
                 X= detect_edge (frame, zexcl=0.1,crop=crop, disp_log=False)
                 EllipseFit,XE=fit_ellipse(frame, X, disp_log=False)
@@ -1740,7 +1696,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     
         t6=time.time()
         dt=t6-t5
-        #print('SX/SY : '+"{:.2f}".format(dt)+' s')
+        if debug_time : tim.write('SX/SY : '+"{:.2f}".format(dt)+'\n')
         
         if k==0:
             cercle0=np.copy(cercle)
@@ -1859,7 +1815,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         t7=time.time()
         dt=t7-t6
-        #print('rotation : '+"{:.2f}".format(dt)+' s')
+        if debug_time : tim.write('rotation : '+"{:.2f}".format(dt)+'\n')
         
         # on croppe et on centre
         # Hauteur du capteur est dans cam_Heigth=scan.height
@@ -1961,7 +1917,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         t8=time.time()
         dt=t8-t7
-        #print('autocrop : '+"{:.2f}".format(dt)+' s')
+        if debug_time : tim.write('autocrop : '+"{:.2f}".format(dt)+'\n')
         
         #-----------------------------------------------------------------
         # sauve images _recon, profil, log
@@ -1990,13 +1946,11 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         t9=time.time()
         dt=t9-t8
-        #print('sauve : '+"{:.2f}".format(dt)+' s')
+        if debug_time : tim.write('sauve : '+"{:.2f}".format(dt)+'\n')
         
         dt=t9-t0
-        #print('total recon : '+"{:.2f}".format(dt)+' s')
-    
-
-        
+        if debug_time : tim.write('total recon : '+"{:.2f}".format(dt)+'\n')
+        tim.close()
         
     return frames, hdr, cercleC, range_dec, geom, poly
     

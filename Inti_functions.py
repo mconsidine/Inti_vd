@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 #import time
 import sys
-from scipy.ndimage import gaussian_filter1d
+from scipy.ndimage import gaussian_filter1d, zoom
 #from scipy.signal import savgol_filter
 import ellipse as el
 from matplotlib.patches import Ellipse
@@ -466,6 +466,14 @@ def circularise2 (img,iw,ih,ratio): #methode par fit ellipse préalable
         ycalc=f(xcalc)
         NewImg.append(ycalc)
     
+    return NewImg, newiw
+
+def circularise2_opt(img, iw, ih, ratio):
+    # Facteur d'échelle en x et y
+    zoom_y = 1.0             # pas de changement vertical
+    zoom_x = ratio            # changement horizontal
+    NewImg = zoom(img, (zoom_y, zoom_x), order=1)  # order=1 = interpolation bilinéaire
+    newiw = NewImg.shape[1]
     return NewImg, newiw
 
 def detect_noXlimbs (myimg):

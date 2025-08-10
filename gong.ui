@@ -136,6 +136,16 @@ QPushButton::default {  color: white; background-color: rgb(80,0,0); border: 1px
        </property>
       </spacer>
      </item>
+     <item>
+      <widget class="QPushButton" name="gong_blink_btn">
+       <property name="text">
+        <string>Blink</string>
+       </property>
+       <property name="checkable">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
     </layout>
    </item>
   </layout>

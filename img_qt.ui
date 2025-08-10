@@ -29,13 +29,13 @@ QPushButton { color: white; background-color: rgb(80,0,0) }</string>
        <widget class="QPushButton" name="closeAll_btn">
         <property name="minimumSize">
          <size>
-          <width>0</width>
+          <width>160</width>
           <height>0</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>150</width>
+          <width>300</width>
           <height>30000</height>
          </size>
         </property>
