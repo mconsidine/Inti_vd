@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>739</width>
-    <height>541</height>
+    <width>824</width>
+    <height>526</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -181,7 +181,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
        <enum>QTabWidget::TabShape::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>4</number>
+       <number>1</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -358,7 +358,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
           <item>
            <widget class="QPushButton" name="inti_calc_btn">
             <property name="text">
-             <string>Calc</string>
+             <string>Calculette</string>
             </property>
            </widget>
           </item>
@@ -383,102 +383,11 @@ li.checked::marker { content: &quot;\2612&quot;; }
        <attribute name="title">
         <string>Doppler - Continuum</string>
        </attribute>
-       <widget class="QLabel" name="label_18">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>30</y>
-          <width>111</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Amplitude Doppler :</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_19">
-        <property name="geometry">
-         <rect>
-          <x>240</x>
-          <y>30</y>
-          <width>111</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Décalage Doppler :</string>
-        </property>
-       </widget>
-       <widget class="QCheckBox" name="dop_inv_chk">
-        <property name="geometry">
-         <rect>
-          <x>10</x>
-          <y>60</y>
-          <width>101</width>
-          <height>20</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Inversion D/G</string>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="dop_shift_text">
-        <property name="geometry">
-         <rect>
-          <x>130</x>
-          <y>30</y>
-          <width>31</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>3</string>
-        </property>
-       </widget>
-       <widget class="QLineEdit" name="dop_offset_text">
-        <property name="geometry">
-         <rect>
-          <x>360</x>
-          <y>30</y>
-          <width>31</width>
-          <height>21</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>0</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_20">
-        <property name="geometry">
-         <rect>
-          <x>170</x>
-          <y>30</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>Pixels</string>
-        </property>
-       </widget>
-       <widget class="QLabel" name="label_21">
-        <property name="geometry">
-         <rect>
-          <x>400</x>
-          <y>30</y>
-          <width>49</width>
-          <height>16</height>
-         </rect>
-        </property>
-        <property name="text">
-         <string>pixels</string>
-        </property>
-       </widget>
        <widget class="QLineEdit" name="dop_conti_shift_text">
         <property name="geometry">
          <rect>
-          <x>130</x>
-          <y>150</y>
+          <x>140</x>
+          <y>160</y>
           <width>31</width>
           <height>21</height>
          </rect>
@@ -491,7 +400,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>150</y>
+          <y>160</y>
           <width>121</width>
           <height>16</height>
          </rect>
@@ -503,8 +412,8 @@ li.checked::marker { content: &quot;\2612&quot;; }
        <widget class="QLabel" name="label_23">
         <property name="geometry">
          <rect>
-          <x>170</x>
-          <y>150</y>
+          <x>180</x>
+          <y>160</y>
           <width>49</width>
           <height>16</height>
          </rect>
@@ -517,7 +426,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
         <property name="geometry">
          <rect>
           <x>10</x>
-          <y>100</y>
+          <y>120</y>
           <width>91</width>
           <height>24</height>
          </rect>
@@ -525,6 +434,145 @@ li.checked::marker { content: &quot;\2612&quot;; }
         <property name="text">
          <string>Profil Spectral</string>
         </property>
+       </widget>
+       <widget class="QPushButton" name="inti_calc_doppler_btn">
+        <property name="geometry">
+         <rect>
+          <x>110</x>
+          <y>120</y>
+          <width>81</width>
+          <height>24</height>
+         </rect>
+        </property>
+        <property name="text">
+         <string>Calculette</string>
+        </property>
+       </widget>
+       <widget class="QGroupBox" name="dop_groupbox">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>10</y>
+          <width>551</width>
+          <height>91</height>
+         </rect>
+        </property>
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="title">
+         <string>Doppler</string>
+        </property>
+        <property name="flat">
+         <bool>true</bool>
+        </property>
+        <property name="checkable">
+         <bool>true</bool>
+        </property>
+        <widget class="QLabel" name="label_18">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>30</y>
+           <width>111</width>
+           <height>16</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Amplitude  : +/-</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="dop_shift_text">
+         <property name="geometry">
+          <rect>
+           <x>100</x>
+           <y>30</y>
+           <width>31</width>
+           <height>21</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>3</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_20">
+         <property name="geometry">
+          <rect>
+           <x>140</x>
+           <y>30</y>
+           <width>49</width>
+           <height>16</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Pixels</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="dop_inv_chk">
+         <property name="geometry">
+          <rect>
+           <x>10</x>
+           <y>60</y>
+           <width>101</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Inversion D/G</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_19">
+         <property name="geometry">
+          <rect>
+           <x>230</x>
+           <y>30</y>
+           <width>111</width>
+           <height>16</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Décalage Doppler :</string>
+         </property>
+        </widget>
+        <widget class="QLineEdit" name="dop_offset_text">
+         <property name="geometry">
+          <rect>
+           <x>340</x>
+           <y>30</y>
+           <width>31</width>
+           <height>21</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>0</string>
+         </property>
+        </widget>
+        <widget class="QLabel" name="label_21">
+         <property name="geometry">
+          <rect>
+           <x>380</x>
+           <y>30</y>
+           <width>49</width>
+           <height>16</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>pixels</string>
+         </property>
+        </widget>
+        <widget class="QCheckBox" name="dop_color_force_chk">
+         <property name="geometry">
+          <rect>
+           <x>150</x>
+           <y>60</y>
+           <width>131</width>
+           <height>20</height>
+          </rect>
+         </property>
+         <property name="text">
+          <string>Colorisation forcée</string>
+         </property>
+        </widget>
        </widget>
       </widget>
       <widget class="QWidget" name="tab_seq">
@@ -961,7 +1009,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
       </widget>
       <widget class="QWidget" name="tab_free">
        <attribute name="title">
-        <string>Libre</string>
+        <string>Helium-Couronne-Libre</string>
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_7">
         <item>
@@ -1430,7 +1478,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <item>
       <widget class="QStackedWidget" name="panel_stack">
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
        <widget class="QWidget" name="section">
         <widget class="QCheckBox" name="section_realtime_chk">
@@ -1996,7 +2044,7 @@ P positif vers l'est</string>
           </rect>
          </property>
          <property name="text">
-          <string>Angle P auto</string>
+          <string>Angle P correction</string>
          </property>
          <property name="checked">
           <bool>true</bool>

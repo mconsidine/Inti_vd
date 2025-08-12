@@ -238,7 +238,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     #plt.gray()              #palette de gris si utilise matplotlib pour visu debug
     
     # flag pour logger les temps d'execution
-    debug_time = True
+    debug_time = False # si True ne marche que sur un décalage à la fois, pas en doppler 
     t0=time.time()
     
     clearlog()
@@ -270,6 +270,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     # pour forcer les valeurs tilt et ratio
     flag_force = Flags["FORCE"]
     flag_corona = Flags['Couronne']
+    flag_contonly = Flags['Contonly']
     deb1=int(param[4]) # en relatif par rapport à l'apparition du disque, première trame
     deb2=int(param[5]) # en relatif par rapport à l'apparition du disque, dernière trame
 
@@ -293,9 +294,12 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     #img_suff=(['.fits','_d1_'+str(shift_dop)+'.fits', '_d2_'+str(shift_dop)+'.fits','_cont_'+str(shift_cont)+'.fits'])
     
     if flag_dopcont :
-        range_dec=[0,shift_dop1,shift_dop2,shift_cont]
-        print('shift doppler 1 : '+ str(shift_dop1))
-        print('shift doppler 2 : '+ str(shift_dop2))
+        if flag_contonly :
+            range_dec=[0,shift_cont]
+        else :
+            range_dec=[0,shift_dop1,shift_dop2,shift_cont]
+            print('shift doppler 1 : '+ str(shift_dop1))
+            print('shift doppler 2 : '+ str(shift_dop2))
     else:
         range_dec=[0]
         """
@@ -431,7 +435,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     # Extract bin de data_entete data_entete[8]
     hdr['BIN1']=int(data_entete[8][0:1])
     hdr['BIN2']=int(data_entete[8][2:3])
-    hdr['CAMPIX']  = float(data_entete [9])*1e-6 #float, pixel size of the CMOS or CCD sensor in mm
+    hdr['CAMPIX']  = float(data_entete [9])*1e-3 #float, pixel size of the CMOS or CCD sensor in mm
     hdr['CREATOR'] = data_entete [10] # String, name of the software which created the file and version number
     if data_entete[11]=='' :
         data_entete[11]=420
@@ -446,9 +450,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     hdr['FCAM']    = float(data_entete [15]) #float, focal length of the camera lens in mm (125 SOLEX, 72 SHG700)
     hdr['GROOVES'] = int(data_entete [16]) #integer, number of grooves/mm of the grating
     hdr['ORDER']   = int(data_entete [17]) #integer, interference order on the grating
-    hdr['SHANGLE']   = float(data_entete [18]) #float, angle between the central incident and diffracted rays in degrees
-    hdr['SLWIDTH'] = float(data_entete [19]) #float, slit width in mm (0.010 or 0.007)
-    hdr['SLHEIGHT'] = float(data_entete [20]) #float, slit height in mm (4.5 or 6)
+    hdr['SHGANGLE']   = float(data_entete [18]) #float, angle between the central incident and diffracted rays in degrees
+    hdr['SLWIDTH'] = round(float(data_entete [20])/1000, 3) #float, slit width in mm (0.010 or 0.007)
+    hdr['SLHEIGHT'] = float(data_entete [19]) #float, slit height in mm (4.5 or 6)
     hdr['WAVEBAND'] = float(0.0) #float, peut-etre obtenu avec param d'avant par calcul
     
     
@@ -537,14 +541,14 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         mean_gradient= np.gradient(mean_filtre)
         tram1=np.argmax(mean_gradient)
         tram2=np.argmin(mean_gradient)
-        print("Trame apparition : "+ str(tram1))
-        print("Trame disparition : "+ str(tram2))
-        print("Trame milieu : "+ str(tram1+(tram2-tram1)//2))
+        #print("Trame apparition : "+ str(tram1))
+        #print("Trame disparition : "+ str(tram2))
+        #print("Trame milieu : "+ str(tram1+(tram2-tram1)//2))
         if flag_corona :
             print("Trame sel : "+ str(deb1)+' '+str(deb2))
         
         for i in range (tram1+deb1, tram1+deb2) :          
-            mytrame += frame[i]
+            mytrame += frames[i]
         
         nbtrame = deb2- (deb1)
         # et on la sauve avec mode couronne ou pas
@@ -1949,8 +1953,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         if debug_time : tim.write('sauve : '+"{:.2f}".format(dt)+'\n')
         
         dt=t9-t0
-        if debug_time : tim.write('total recon : '+"{:.2f}".format(dt)+'\n')
-        tim.close()
+        if debug_time : 
+            tim.write('total recon : '+"{:.2f}".format(dt)+'\n')
+            tim.close()
         
     return frames, hdr, cercleC, range_dec, geom, poly
     

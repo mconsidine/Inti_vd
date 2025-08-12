@@ -28,6 +28,7 @@ import math
 import numpy as np
 from PIL import Image
 import Inti_recon as sol
+#import Inti_recon_no_opt as sol
 from Inti_functions import *
 import config as cfg
 import stonyhurst as sth
@@ -62,6 +63,8 @@ Version 6.6g -6.7 - post ohp 25
 - corrige erreur lancement dernier ser
 - amélioration rapidité inti_recon
 - ajout fonction blink et ajustement taille dans gong
+- bug inversion slwidth et slheight, valeur scampix et keyword shgangle
+- Ha2cb passe a 6561.231
 
 Version 6.6f - 15 juiller 2025
 - compil trad
@@ -122,12 +125,13 @@ Version 6.5c - 16 avril 2025
 """
 
 # TODO : dans calc dispersion ang/pix pas mise a jour
+# TODO : equilibrage des canaux couleurs doppler
+# TODO : check outliers dans routine poly edge
 
 
 # DOC  : indiquer que le poly dans console est le poly avec le decalage
 
 # IDEA : option correction rotation doppler
-# IDEA : vectorization tilt
 # IDEA : test no display en batch # gagne 3s 
 # IDEA : faire un updater
 # IDEA : ajoute rotation angle P apres correction helium
@@ -166,7 +170,7 @@ class main_wnd_UI(QMainWindow) :
         self.bass_entete ={'observer':'', 'instru':'','wave_label':'Manual', 'lat':'0', 'long':'0',
                            'camera':'', 'spectro':'SOLEX',"pixel":'0','objcollim':'80', 'objcam':'125', 'focinstru':'0',
                             'diaminstru':'0', 'waveID':0, "binID":0, 'reseau':'2400', 'ordre':'1',
-                            'contact':'', 'angle':'24','fentelong':'4.5', 'fentelarg':'10',
+                            'contact':'', 'angle':'34','fentelong':'4.5', 'fentelarg':'10',
                             'diaph' : '0', 'dfilter' : ''}
         
 
@@ -214,7 +218,8 @@ class main_wnd_UI(QMainWindow) :
         self.previous_serfile=''
         self.ang_tilt = 0 
         self.ratio_fixe = 1
-        self.list_wave=[['Manual','Ha','Ha2cb','Cah','Cah1v','Cak','Cak1v','HeID3'],[0,6562.762,6561.432,3968.469,3966.968,3933.663,3932.163,5877.3]]
+        #self.list_wave=[['Manual','Ha','Ha2cb','Cah','Cah1v','Cak','Cak1v','HeID3'],[0,6562.762,6561.432,3968.469,3966.968,3933.663,3932.163,5877.3]]
+        self.list_wave=[['Manual','Ha','Ha2cb','Cah','Cah1v','Cak','Cak1v','HeID3'],[0,6562.762,6561.232,3968.469,3966.968,3933.663,3932.163,5877.3]]
         self.list_binning=['1x1','2x2','3x3','4x4']
         self.solar_dict={}
         self.img_list =[]
@@ -608,23 +613,24 @@ class main_wnd_UI(QMainWindow) :
                     debug_param = False
                     
                     
+                    
                     if debug_param  :
                         # Shift
                         print(self.Shift)
                         # Flags
                         print(self.Flags)
                         # ratio_fixe
-                        print(self.ratio_fixe)
+                        #print(self.ratio_fixe)
                         # ang_tilt
-                        print(self.ang_tilt)
+                        #print(self.ang_tilt)
                         # data_entete
-                        print(self.data_entete)
+                        #print(self.data_entete)
                         # ang_P
-                        print(self.ang_P)
+                        #print(self.ang_P)
                         # poly
-                        print(self.polynome)
+                        #print(self.polynome)
                         # solar_dict
-                        print(self.solar_dict)
+                        #print(self.solar_dict)
                     
                     
                     # ------------------------------------------------------------------------------------                     
@@ -941,7 +947,7 @@ class main_wnd_UI(QMainWindow) :
         
         # images doppler, continuum ou free, ou magnet, ou volume
         if len(frames) >1:
-            if len(frames)>3:
+            if len(frames)>3 or self.Flags['DOPCONT']: 
                 # seuils image continuum 
                 frameC=np.copy(frames[len(frames)-1])
                 frame_continuum = seuil_image_dyn (frameC, 99.999, 0.25)
@@ -952,11 +958,11 @@ class main_wnd_UI(QMainWindow) :
                 # sauvegarde en png de continuum
                 cv2.imwrite(self.basefich+'_dp'+str(range_dec[len(range_dec)-1])+'_cont.png',frame_continuum)
             
-            if self.Flags["DOPCONT"] :
+            if self.Flags["DOPCONT"] and not self.Flags['Contonly']:
                 #on se tente une image couleur...
                 flag_erreur_doppler=False
                 try :
-                    img_doppler=np.zeros([frames[1].shape[0], frames[1].shape[1], 3],dtype='uint16')
+                    img_doppler=np.zeros([frames[1].shape[0], frames[1].shape[1], 3],dtype='uint8')
                     img_doppler_ec=np.zeros([frames[1].shape[0], frames[1].shape[1], 3],dtype='uint16')
                     if self.Flags["VOL"] :
                         f1=np.array(frames[1], dtype="float64")
@@ -965,24 +971,41 @@ class main_wnd_UI(QMainWindow) :
                     else:
                         f1=np.array(frames[1], dtype="float64")
                         f2=np.array(frames[2], dtype="float64")
-                        moy=np.array(((f1+f2)/2), dtype='uint16') # was /2
-                        if self.Shift[5] != 0 :
-                            lum_roi1 = get_lum_moyenne(frames[1])
-                            lum_roi2 = get_lum_moyenne(frames[2])
+                        moy=np.array(((f1+f2)/2), dtype='float64') # was /2
+                        #if self.Shift[5] != 0 :
+                        if 1==1 :
+                            lum_roi1 = get_lum_moyenne(f1)
+                            lum_roi2 = get_lum_moyenne(f2)
                             lum_roimoy = get_lum_moyenne(moy)
                             ratio_l1 = lum_roimoy/lum_roi1
                             ratio_l2 = lum_roimoy/lum_roi2
-                            frames[2] = frames[2]*ratio_l2
-                            frames[1] = frames[1]*ratio_l1
-                    
+                            frames[2] = np.clip(f2*ratio_l2, 0, 65535).astype( np.uint16)
+                            frames[1] = np.clip(f1*ratio_l1, 0, 65535).astype( np.uint16) 
+                            moy=np.array(moy, dtype='uint16')
+                            
                         #frames[1]=np.array((moy-f1), dtype='uint16')
                         #frames[2]=np.array((f2-moy), dtype='uint16')
+                        moy_doppler = np.copy(moy)
+                        dop1= np.copy(frames[1])
+                        dop2= np.copy(frames[2])
                  
-                    i2,Seuil_haut, Seuil_bas=seuil_image(moy) ## attention modif seuil dans seuil_image seuil bas = 0
+                    #i2,Seuil_haut, Seuil_bas=seuil_image(moy) # seuil bas = 0
+                    Seuil_haut = np.percentile(moy, 99.99)
+                    Seuil_bas=np.percentile(moy,5)
+                    i2= seuil_image_force (moy,Seuil_haut, Seuil_bas)
                     i1=seuil_image_force (frames[1],Seuil_haut, Seuil_bas)
                     i3=seuil_image_force(frames[2],Seuil_haut, Seuil_bas)
-                    #i1,Seuil_haut, Seuil_bas=seuil_image(frames[1])
-                    #i3,Seuil_haut, Seuil_bas=seuil_image(frames[2])
+                    
+                    moy_doppler = np.copy(i2)
+                    dop1= np.copy(i1)
+                    dop2= np.copy(i3)
+                    
+                    #conversion en 8 bits
+                    i1=np.clip(i1/256,0,255).astype(np.uint8)
+                    i2=np.clip(i2/256,0,255).astype(np.uint8)
+                    i3=np.clip(i3/256,0,255).astype(np.uint8)
+                    
+                    
                     if self.Flags['DOPFLIP'] !=0 : 
                         img_doppler[:,:,0] = i3
                         img_doppler[:,:,1] = i2
@@ -991,7 +1014,39 @@ class main_wnd_UI(QMainWindow) :
                         img_doppler[:,:,0] = i1 # blue
                         img_doppler[:,:,1] = i2 # green
                         img_doppler[:,:,2] = i3 # red
-                    img_doppler=cv2.flip(img_doppler,0)
+                    
+                    flag_dop_color_force= self.ui.dop_color_force_chk.isChecked()
+                    
+                    if  flag_dop_color_force :
+                        # boost saturation
+                        # BGR → HSV
+                        hsv = cv2.cvtColor(img_doppler, cv2.COLOR_RGB2HSV).astype(np.float32)
+                        H, S, V = cv2.split(hsv)
+                        
+                        # Correction orange → plus rouge
+                        mask_orange = (H > 5) & (H < 25)   # plage d'orange en degrés OpenCV (0-179) was 25
+                        H[mask_orange] -= 20               # décale la teinte vers le rouge
+                        S[mask_orange] *= 1.5              # booste la saturation
+                                           
+                        
+                        # Correction bleu → plus bleu
+                        mask_blue = (H > 90) & (H < 150)    # plage de bleu was 90
+                        H[mask_blue] += 20 
+                        S[mask_blue] *= 1.5 
+                        #V[mask_blue] *= 1.1
+                        #V[mask_blue] += 20
+                        
+                        # Après ton traitement en float32
+                        H = np.clip(H, 0, 179)
+                        S = np.clip(S, 0, 255) 
+                        V = np.clip(V, 0, 255) 
+                        
+                        # Reconstruction
+                        hsv_mod = cv2.merge([H, S, V]).astype(np.uint8)
+                        img_doppler = cv2.cvtColor(hsv_mod, cv2.COLOR_HSV2RGB)
+
+                    
+                    img_doppler =cv2.flip(img_doppler,0)
                     disks.append(img_doppler)
                     
                     if not self.Flags["VOL"] :
@@ -999,14 +1054,21 @@ class main_wnd_UI(QMainWindow) :
                         moy=cv2.circle(moy, (x0,y0),r,80,-1,lineType=cv2.LINE_AA)
                         frames[1]=cv2.circle(frames[1], (x0,y0),r,80,-1,lineType=cv2.LINE_AA)
                         frames[2]=cv2.circle(frames[2], (x0,y0),r,80,-1,lineType=cv2.LINE_AA)
-                        Th_Upper=np.percentile(moy,99.9999)*0.6  #preference for high contrast was 0.5
+                        Th_Upper=np.percentile(moy,99.9999)*1 #preference for high contrast was 0.6
                         Th_low=0
                         i2=seuil_image_force(moy, Th_Upper, Th_low)
                         i1=seuil_image_force (frames[1],Th_Upper, Th_low)
                         i3=seuil_image_force(frames[2],Th_Upper, Th_low)
+                        
+                        gain_R = 1
+                        gain_G = 1
+                        gain_B = 1
+                        
+                        i3 = np.clip(i3 * gain_B, 0, 65535).astype(np.uint16)
+                        i2 = np.clip(i2 * gain_G, 0, 65535).astype(np.uint16)
+                        i1 = np.clip(i1 * gain_R, 0, 65535).astype(np.uint16)
                                        
-                        #i1,Seuil_haut, Seuil_bas=seuil_image(frames[1])
-                        #i3,Seuil_haut, Seuil_bas=seuil_image(frames[2])
+
                         if self.Flags['DOPFLIP'] !=0 : 
                             img_doppler_ec[:,:,0] = i3
                             img_doppler_ec[:,:,1] = i2
@@ -1028,8 +1090,10 @@ class main_wnd_UI(QMainWindow) :
                 if flag_erreur_doppler==False:
                     dp_str= str(abs(range_dec[1]))
                     dp_str='_'+str.replace(dp_str,".","_")
-                    cv2.imwrite(self.basefich+'_doppler'+dp_str+'.png',img_doppler)
-                    cv2.imwrite(self.basefich+'_doppler_protus'+dp_str+'.png',img_doppler_ec)
+                    img_doppler_cv2 =  cv2.cvtColor(img_doppler, cv2.COLOR_RGB2BGR)
+                    img_doppler_ec_cv2 =  cv2.cvtColor(img_doppler_ec, cv2.COLOR_RGB2BGR)
+                    cv2.imwrite(self.basefich+'_doppler'+dp_str+'.png',img_doppler_cv2)
+                    cv2.imwrite(self.basefich+'_doppler_protus'+dp_str+'.png',img_doppler_ec_cv2)
     
             
             if self.Flags["POL"] :
@@ -1065,7 +1129,7 @@ class main_wnd_UI(QMainWindow) :
                     else :
                         offset=0
                     
-                    print("Offset "+str(offset))
+                    #print("Offset "+str(offset))
                     img_weak_array=d+float(offset)
                     img_weak_uint=np.array((img_weak_array), dtype='uint16')
                     
@@ -1085,7 +1149,7 @@ class main_wnd_UI(QMainWindow) :
                     
                     if self.Flags["FREE_TRANS"] :
                         R=int(cercle[2])
-                        print(R, img_weak.shape[0])
+                        #print(R, img_weak.shape[0])
                         if R*2 >= img_weak.shape[0] :
                             print("Pas de correction de transversallium sur un disque partiel")
                         else :
@@ -1130,7 +1194,7 @@ class main_wnd_UI(QMainWindow) :
                     flag_erreur_weak=True
                     pass
     
-                #sauvegarde en png de doppler
+                #sauvegarde en png de raie libre 
                 if flag_erreur_weak==False:
                     cv2.imwrite(self.basefich+'_free'+'.png',img_weak)
                     
@@ -1419,12 +1483,16 @@ class main_wnd_UI(QMainWindow) :
                 DiskHDU=fits.PrimaryHDU(moy,header)
                 DiskHDU.writeto(self.basefich_comple+'_sum.fits', overwrite='True')
             
-        else:
-            """
-            frame2=np.array(cl1, dtype='uint16')
-            DiskHDU=fits.PrimaryHDU(frame2,header)
-            DiskHDU.writeto(basefich+'_clahe.fits', overwrite='True')
-            """
+        if self.Flags['DOPCONT'] and not self.Flags['Contonly'] :
+            DiskHDU=fits.PrimaryHDU(moy_doppler,header)
+            DiskHDU.writeto(self.basefich_comple+'_moy.fits', overwrite='True')
+            
+            DiskHDU=fits.PrimaryHDU(dop1,header)
+            DiskHDU.writeto(self.basefich_comple+'_dop1.fits', overwrite='True')
+
+            DiskHDU=fits.PrimaryHDU(dop2,header)
+            DiskHDU.writeto(self.basefich_comple+'_dop2.fits', overwrite='True')
+
         
         if self.Flags['POL']:
             # image difference en fits
@@ -1498,6 +1566,7 @@ class main_wnd_UI(QMainWindow) :
         self.Flags['zoom'] = self.ui.section_zoom_chk.isChecked()
         self.Flags['h20percent'] = self.ui.inti_h20_radio.isChecked()
         self.Flags['Couronne'] = self.ui.free_corona_chk.isChecked()
+        self.Flags['Contonly']= not self.ui.dop_groupbox.isChecked()
         
         
         # ratio_fixe, ang_tilt
@@ -2085,7 +2154,7 @@ class main_wnd_UI(QMainWindow) :
         app_tab= self.ui.tab_main.tabText(self.ui.tab_main.currentIndex())
         #print('tab  :'+str(app_tab))
         
-        if app_tab =='Libre' or app_tab == 'free':
+        if app_tab =='Helium-Couronne-Libre' or app_tab == 'Helium-Corona-Free':
             self.Flags['WEAK'] =True
         if app_tab == 'Magnétogramme' or app_tab=='Magnetogram':
             self.Flags['POL'] =True
@@ -2330,7 +2399,7 @@ class main_wnd_UI(QMainWindow) :
         self.Flags["POL"]=False
         self.Flags["WEAK"]=False
         app_tab= self.ui.tab_main.tabText(self.ui.tab_main.currentIndex())
-        if app_tab =='Libre' or app_tab == 'free':
+        if app_tab =='Helium-Couronne-Libre' or app_tab == 'Helium-Corona-Free':
             self.Flags['WEAK'] =True
         if app_tab == 'Magnétogramme' or app_tab == "Magnetogram":
             self.Flags['POL'] =True
@@ -3978,7 +4047,7 @@ def seuil_image (img):
     Seuil_haut=np.percentile(img,99.999)
     Seuil_bas=(Seuil_haut*0) # was 0.25 test dopppler protu
     img[img>Seuil_haut]=Seuil_haut
-    img_seuil=(img-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas)) # was 65500
+    img_seuil=(img-Seuil_bas)* (65535/(Seuil_haut-Seuil_bas))
     img_seuil[img_seuil<0]=0
     
     return img_seuil, Seuil_haut, Seuil_bas
