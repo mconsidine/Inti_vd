@@ -45,13 +45,13 @@ jobs:
         run: |
           copy inti_om_FR.pdf dist\inti\
 
-      - name: Créer le fichier ZIP
-        run: |
-          powershell Compress-Archive -Path dist\inti\* -DestinationPath inti-windows.zip
+      #- name: Créer le fichier ZIP
+      #  run: |
+      #    powershell Compress-Archive -Path dist\inti\* -DestinationPath inti-windows.zip
           
       - name: Upload Windows onedir build
         uses: actions/upload-artifact@v4
         with:
           name: inti-windows
-          path: inti-windows.zip
+          path: dist\inti\
       
