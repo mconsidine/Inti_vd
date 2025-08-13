@@ -65,6 +65,8 @@ Version 6.6g -6.7 - post ohp 25
 - ajout fonction blink et ajustement taille dans gong
 - bug inversion slwidth et slheight, valeur scampix et keyword shgangle
 - Ha2cb passe a 6561.231
+- mode doppler optionnel
+- ajout mode couleur rouge
 
 Version 6.6f - 15 juiller 2025
 - compil trad
@@ -123,14 +125,12 @@ Version 6.5c - 16 avril 2025
 - exporter les param de trame couronne dans inti_ini
 
 """
-
-# TODO : dans calc dispersion ang/pix pas mise a jour
-# TODO : equilibrage des canaux couleurs doppler
-# TODO : check outliers dans routine poly edge
-
+# TODO : faire dans calculette un SHG custom
+# TODO : option sauvegarde fichiers doppler moy,dop1, dop2
 
 # DOC  : indiquer que le poly dans console est le poly avec le decalage
 
+# IDEA : check outliers dans routine poly edge
 # IDEA : option correction rotation doppler
 # IDEA : test no display en batch # gagne 3s 
 # IDEA : faire un updater
@@ -918,14 +918,8 @@ class main_wnd_UI(QMainWindow) :
             fc3=disk_gauss (frame2, x0, y0, int(r-(2*flou)), flou).astype(np.uint16)
 
             fc3=seuil_image_dyn (fc3, 99.99, 0) # 0 was 99.999 et 0.05
+            #Seuil bas à zéro... fait remonter les défauts, mais conserve la dynamique
            
-            """
-            Threshold_Upper=int(np.percentile(fc3,99.9999)*0.6) #preference for high contrast was 0.5
-            Threshold_low=0
-            print('Th : ' +str(Threshold_Upper)+' '+str( Threshold_low))
-            fc3=seuil_image_force(fc3, Threshold_Upper, Threshold_low)
-            """   
-            
             frame_contrasted3 = np.array(fc3, dtype='uint16')
             frame_contrasted3=cv2.flip(fc3,0)
             disks.append(frame_contrasted3)
@@ -958,44 +952,42 @@ class main_wnd_UI(QMainWindow) :
                 # sauvegarde en png de continuum
                 cv2.imwrite(self.basefich+'_dp'+str(range_dec[len(range_dec)-1])+'_cont.png',frame_continuum)
             
-            if self.Flags["DOPCONT"] and not self.Flags['Contonly']:
-                #on se tente une image couleur...
+            if self.Flags["DOPCONT"] and self.ui.dop_groupbox.isChecked():
+                #on se tente une image couleur, en 8 bits
                 flag_erreur_doppler=False
                 try :
                     img_doppler=np.zeros([frames[1].shape[0], frames[1].shape[1], 3],dtype='uint8')
-                    img_doppler_ec=np.zeros([frames[1].shape[0], frames[1].shape[1], 3],dtype='uint16')
+                    img_doppler_ec=np.zeros([frames[1].shape[0], frames[1].shape[1], 3],dtype='uint8')
                     if self.Flags["VOL"] :
                         f1=np.array(frames[1], dtype="float64")
                         fn=np.array(frames[len(frames)-1], dtype="float64")
-                        moy=np.array(((f1+fn)/2), dtype='uint16')
+                        moy=np.array(((f1+fn)/2), dtype='float64')
                     else:
                         f1=np.array(frames[1], dtype="float64")
                         f2=np.array(frames[2], dtype="float64")
-                        moy=np.array(((f1+f2)/2), dtype='float64') # was /2
-                        #if self.Shift[5] != 0 :
-                        if 1==1 :
-                            lum_roi1 = get_lum_moyenne(f1)
-                            lum_roi2 = get_lum_moyenne(f2)
-                            lum_roimoy = get_lum_moyenne(moy)
-                            ratio_l1 = lum_roimoy/lum_roi1
-                            ratio_l2 = lum_roimoy/lum_roi2
-                            frames[2] = np.clip(f2*ratio_l2, 0, 65535).astype( np.uint16)
-                            frames[1] = np.clip(f1*ratio_l1, 0, 65535).astype( np.uint16) 
-                            moy=np.array(moy, dtype='uint16')
+                        moy=np.array(((f1+f2)/2), dtype='float64') 
+                        # on equilibre les plans
+                        lum_roi1 = get_lum_moyenne(f1) # calcul moyenne au centre sur zone de 200x200
+                        lum_roi2 = get_lum_moyenne(f2)
+                        lum_roimoy = get_lum_moyenne(moy)
+                        ratio_l1 = lum_roimoy/lum_roi1
+                        ratio_l2 = lum_roimoy/lum_roi2
+                        frames[2] = np.clip(f2*ratio_l2, 0, 65535).astype( np.uint16)
+                        frames[1] = np.clip(f1*ratio_l1, 0, 65535).astype( np.uint16) 
+                        moy=np.array(moy, dtype='uint16')
                             
                         #frames[1]=np.array((moy-f1), dtype='uint16')
                         #frames[2]=np.array((f2-moy), dtype='uint16')
-                        moy_doppler = np.copy(moy)
-                        dop1= np.copy(frames[1])
-                        dop2= np.copy(frames[2])
+                        
                  
                     #i2,Seuil_haut, Seuil_bas=seuil_image(moy) # seuil bas = 0
-                    Seuil_haut = np.percentile(moy, 99.99)
-                    Seuil_bas=np.percentile(moy,5)
+                    Seuil_haut = np.percentile(moy, 99.99) # was 99.999
+                    Seuil_bas=np.percentile(moy,5) # was zéra
                     i2= seuil_image_force (moy,Seuil_haut, Seuil_bas)
                     i1=seuil_image_force (frames[1],Seuil_haut, Seuil_bas)
                     i3=seuil_image_force(frames[2],Seuil_haut, Seuil_bas)
                     
+                    # tableau pour sauvegarde des fits moy, dop1, dop2
                     moy_doppler = np.copy(i2)
                     dop1= np.copy(i1)
                     dop2= np.copy(i3)
@@ -1018,34 +1010,9 @@ class main_wnd_UI(QMainWindow) :
                     flag_dop_color_force= self.ui.dop_color_force_chk.isChecked()
                     
                     if  flag_dop_color_force :
-                        # boost saturation
-                        # BGR → HSV
-                        hsv = cv2.cvtColor(img_doppler, cv2.COLOR_RGB2HSV).astype(np.float32)
-                        H, S, V = cv2.split(hsv)
+                        # remap orange en rouge 
+                        img_doppler = img_force_color(img_doppler)
                         
-                        # Correction orange → plus rouge
-                        mask_orange = (H > 5) & (H < 25)   # plage d'orange en degrés OpenCV (0-179) was 25
-                        H[mask_orange] -= 20               # décale la teinte vers le rouge
-                        S[mask_orange] *= 1.5              # booste la saturation
-                                           
-                        
-                        # Correction bleu → plus bleu
-                        mask_blue = (H > 90) & (H < 150)    # plage de bleu was 90
-                        H[mask_blue] += 20 
-                        S[mask_blue] *= 1.5 
-                        #V[mask_blue] *= 1.1
-                        #V[mask_blue] += 20
-                        
-                        # Après ton traitement en float32
-                        H = np.clip(H, 0, 179)
-                        S = np.clip(S, 0, 255) 
-                        V = np.clip(V, 0, 255) 
-                        
-                        # Reconstruction
-                        hsv_mod = cv2.merge([H, S, V]).astype(np.uint8)
-                        img_doppler = cv2.cvtColor(hsv_mod, cv2.COLOR_HSV2RGB)
-
-                    
                     img_doppler =cv2.flip(img_doppler,0)
                     disks.append(img_doppler)
                     
@@ -1055,19 +1022,15 @@ class main_wnd_UI(QMainWindow) :
                         frames[1]=cv2.circle(frames[1], (x0,y0),r,80,-1,lineType=cv2.LINE_AA)
                         frames[2]=cv2.circle(frames[2], (x0,y0),r,80,-1,lineType=cv2.LINE_AA)
                         Th_Upper=np.percentile(moy,99.9999)*1 #preference for high contrast was 0.6
-                        Th_low=0
+                        Th_low= 0
                         i2=seuil_image_force(moy, Th_Upper, Th_low)
                         i1=seuil_image_force (frames[1],Th_Upper, Th_low)
                         i3=seuil_image_force(frames[2],Th_Upper, Th_low)
                         
-                        gain_R = 1
-                        gain_G = 1
-                        gain_B = 1
-                        
-                        i3 = np.clip(i3 * gain_B, 0, 65535).astype(np.uint16)
-                        i2 = np.clip(i2 * gain_G, 0, 65535).astype(np.uint16)
-                        i1 = np.clip(i1 * gain_R, 0, 65535).astype(np.uint16)
-                                       
+                        # passage en 8 bits
+                        i3 = np.clip(i3 /256, 0, 255).astype(np.uint8)
+                        i2 = np.clip(i2/256, 0, 255).astype(np.uint8)
+                        i1 = np.clip(i1 /256, 0, 255).astype(np.uint8)
 
                         if self.Flags['DOPFLIP'] !=0 : 
                             img_doppler_ec[:,:,0] = i3
@@ -1077,6 +1040,13 @@ class main_wnd_UI(QMainWindow) :
                             img_doppler_ec[:,:,0] = i1 # blue
                             img_doppler_ec[:,:,1] = i2 # green
                             img_doppler_ec[:,:,2] = i3 # red
+                            
+                        flag_dop_color_force= self.ui.dop_color_force_chk.isChecked()
+                        
+                        if  flag_dop_color_force :
+                            # remap orange en rouge 
+                            img_doppler = img_force_color(img_doppler)
+                            
                         img_doppler_ec=cv2.flip(img_doppler_ec,0)
                         # on remplace l'image protus noir et blanc
                         disks[2]=img_doppler_ec
@@ -1831,6 +1801,8 @@ class main_wnd_UI(QMainWindow) :
         self.Flags['FREE_AUTOPOLY']=self.ui.free_poly_auto_chk.isChecked()
         self.Flags['ZEE_AUTOPOLY']=self.ui.magnet_poly_auto_chk.isChecked()
         self.Flags['h20percent'] = self.ui.inti_h20_radio.isChecked()
+        self.Flags['Contonly'] = self.ui.dop_groupbox.isChecked()
+        self.Flags['dop_color_force'] = self.ui.dop_color_force_chk.isChecked()
         
         
         self.my_dictini['lang']=self.langue
@@ -1878,6 +1850,8 @@ class main_wnd_UI(QMainWindow) :
        
         self.my_dictini['dec doppler']= int(self.ui.dop_shift_text.text())    # self.Shift[1]
         self.my_dictini['dec cont']= int(self.ui.dop_conti_shift_text.text()) # self.Shift[2]
+        self.my_dictini['cont_only']=self.Flags['Contonly']
+        self.my_dictini['dop_color_force']= self.Flags['dop_color_force']
 
         self.my_dictini['ang_tilt']=self.ang_tilt
         self.my_dictini['angle P']=0 # ne conserve pas angle P pour eviter confusion
@@ -1940,7 +1914,7 @@ class main_wnd_UI(QMainWindow) :
                     'angle P':0,'contact':'','wavelength':0, 'wave_label':'Manuel', 'inversion NS':0, 'inversion EW':0,
                     'autocrop':1,'ext20pct':0, 'pos fente min':0, 'pos fente max':0,'trame couronne1':-25, 'trame couronne2':-5,
                     "zeeman_shift":0, "reduction bruit":0, 'grid disk':'on', 'lang' :'FR', 'correction He':1, 'angP auto': 0,
-                    "zoom":0}
+                    "zoom":0, "cont_only":0, "dop_color_force":0}
     
         poly=[]
         Flags=self.Flags
@@ -1971,6 +1945,16 @@ class main_wnd_UI(QMainWindow) :
         Flags['DOPFLIP']=0
         Flags["SAVEPOLY"]=0
         
+        if 'cont_only' in my_dictini :
+            Flags['Contonly']=my_dictini['cont_only']
+        else :
+            Flags['Contonly']=0
+            
+        if 'dop_color_force' in my_dictini :
+            Flags['dop_color_force']=my_dictini['dop_color_force']
+        else :
+            Flags['dop_color_force']=0
+            
         if 'ext20pc' in my_dictini :
             Flags['h20percent']=my_dictini['ext20pc']
         else :
@@ -2117,6 +2101,9 @@ class main_wnd_UI(QMainWindow) :
         self.ui.free_poly_auto_chk.setChecked(self.Flags['FREE_AUTOPOLY'])
         self.ui.magnet_poly_auto_chk.setChecked(self.Flags['ZEE_AUTOPOLY'])
         self.ui.inti_dir_lbl.setText(self.working_dir)
+        self.ui.dop_groupbox.setChecked(self.Flags['Contonly'])
+        self.ui.dop_color_force_chk.setChecked(self.Flags['dop_color_force'])
+        
         
         self.ui.db_observer_text.setText(self.bass_entete['observer'])
         self.ui.db_instru_text.setText(self.bass_entete['instru'])
@@ -3190,8 +3177,8 @@ class calc_dialog(QDialog):
         size_pix_cam=float(self.ui.calc_size_text.text())
         bin_cam=float(self.ui.calc_bin_text.text())
         val_toconvert=float(self.ui.calc_ang_text.text())
-        disp = 1e7 * size_pix_cam* np.cos(np.radians(beta)) / 2400 / 125
-        val_ang_onepix= disp * bin_cam
+        disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 / 125
+        val_ang_onepix= disp 
         #print(val_ang_onepix)
         resultat=round(val_toconvert / val_ang_onepix)
         self.ui.calc_pix_text.setText(str(resultat))
@@ -3204,8 +3191,8 @@ class calc_dialog(QDialog):
          size_pix_cam=float(self.ui.calc_size_text.text())
          bin_cam=float(self.ui.calc_bin_text.text())
          val_toconvert=float(self.ui.calc_pix_text.text())
-         disp = 1e7 * size_pix_cam* np.cos(np.radians(beta)) / 2400 / 125
-         val_ang_onepix= disp * bin_cam
+         disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 / 125
+         val_ang_onepix= disp 
          #print(val_ang_onepix)
          resultat= "{:.3f}".format(val_toconvert * val_ang_onepix)
          self.ui.calc_ang_text.setText(str(resultat))
@@ -3645,6 +3632,35 @@ def angle_P_B0 (date_utc):
     
     return(str(round(P,2)),str(round(Bo,2)), str(round(L0,2)), str(int(Rot_Carrington)))
 
+def img_force_color (img_doppler) :
+    # BGR → HSV
+    hsv = cv2.cvtColor(img_doppler, cv2.COLOR_RGB2HSV).astype(np.float32)
+    H, S, V = cv2.split(hsv)
+    
+    # Correction orange → plus rouge
+    mask_orange = (H > 5) & (H < 25)   # plage d'orange en degrés OpenCV (0-179) was 25
+    H[mask_orange] -= 20               # décale la teinte vers le rouge
+    S[mask_orange] *= 1.5              # booste la saturation
+                       
+    
+    # Correction bleu → plus bleu
+    mask_blue = (H > 90) & (H < 150)    # plage de bleu was 90
+    H[mask_blue] += 20 
+    S[mask_blue] *= 1.5 
+    #V[mask_blue] *= 1.1
+    #V[mask_blue] += 20
+    
+    # Après ton traitement en float32
+    H = np.clip(H, 0, 179)
+    S = np.clip(S, 0, 255) 
+    V = np.clip(V, 0, 255) 
+    
+    # Reconstruction
+    hsv_mod = cv2.merge([H, S, V]).astype(np.uint8)
+    img_doppler = cv2.cvtColor(hsv_mod, cv2.COLOR_HSV2RGB)
+    
+    return img_doppler
+
 def img_getdiam (img) :
     # detection des rayons
     axis=0 
@@ -3669,6 +3685,7 @@ def img_crop_diam (img, diam, marge) :
     img_crop = img[c-half : c+half, c-half : c+half]
     
     return img_crop
+
 
 def gong_orientation_auto(img1, img2, diam) :
     # img1 image jpg de gong en 8 bits
@@ -4062,7 +4079,7 @@ def seuil_image_force (img, Seuil_haut, Seuil_bas):
 def get_lum_moyenne(img) :
     # ajout calcul intensité moyenne sur ROI centrée
     ih, iw =img.shape
-    dim_roi = 100
+    dim_roi = 200 # was 100 avant 6.7
     rox1 = iw//2 - dim_roi
     rox2 = iw//2 + dim_roi
     roy1 = ih//2 - dim_roi
