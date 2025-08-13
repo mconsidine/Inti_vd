@@ -40,12 +40,12 @@ jobs:
         run: |
           cp inti_om_FR.pdf dist/inti/
 
-      - name: Créer le fichier ZIP
-        run: |
-          zip -r inti-linux.zip dist/inti
+      #- name: Créer le fichier ZIP
+      #  run: |
+      #    zip -r inti-linux.zip dist/inti
           
       - name: Upload artefact sans zip imbriqué
         uses: actions/upload-artifact@v4
         with:
           name: inti-linux
-          path: inti-linux.zip
+          path: dist/inti/
