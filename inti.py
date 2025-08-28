@@ -58,6 +58,14 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
+Version 6.8 - paris 22 aout 2025
+- ajout des params calculette shg autre
+- save fits doppler optionel
+- save settings fenetre gong
+- corrige noms fits avec cont et png cont avec dp
+- ajoute log valeurs de shift
+- corrige trame_profil ecart de 1 dans auto
+
 Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
 - corrige erreur lancement dernier ser
@@ -121,15 +129,15 @@ Version 6.5c - 16 avril 2025
 - corrige reference tilt
 - pas d'angle P pour disque partiel et helium transversallium ou magnet
 - pas angle P auto au départ, toujours premier onglet, no more edition polynome
-- zone de serfiles avec scrollbar
-- exporter les param de trame couronne dans inti_ini
+
 
 """
-# TODO : faire dans calculette un SHG custom
-# TODO : option sauvegarde fichiers doppler moy,dop1, dop2
 
-# DOC  : indiquer que le poly dans console est le poly avec le decalage
 
+# IDEA : ne plus afficher disk
+# IDEA : flat 2 passes
+# IDEA : dock devant en traitement multiple
+# IDEA : date et rotation image gong
 # IDEA : check outliers dans routine poly edge
 # IDEA : option correction rotation doppler
 # IDEA : test no display en batch # gagne 3s 
@@ -274,8 +282,6 @@ class main_wnd_UI(QMainWindow) :
         self.ui.inti_go_btn.setAutoDefault(True)
         self.ui.console_clear_btn.clicked.connect(self.console_clear)
         
-
-        
         # database
         self.ui.db_wave_text.addItems(self.list_wave[0])
         self.ui.db_entete_btn.clicked.connect(self.db_edit_entete)
@@ -294,11 +300,11 @@ class main_wnd_UI(QMainWindow) :
         self.ui.dop_shift_text.setText(str(self.dec_pix_dop))
         self.ui.dop_conti_shift_text.setText(str(self.dec_pix_cont))
         self.ui.dop_profil_btn.clicked.connect(self.dop_profil)
+        self.ui.dop_calc_btn.clicked.connect(self.inti_calc)
         
         # free
         # -------------------------------------------------------------------
         self.ui.free_trame_btn.clicked.connect(self.trame_mean_img)
-        self.ui.inti_calc_btn_3.clicked.connect (self.inti_calc)
         self.ui.inti_calc_btn_3.clicked.connect (self.inti_calc)
         self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
         
@@ -414,6 +420,441 @@ class main_wnd_UI(QMainWindow) :
                     self.ui.version_label.setStyleSheet('color: red')
         except:
             pass
+        
+    def read_settings(self):
+        settings=QSettings("Desnoux Buil", "inti_qt")
+        self.ui.restoreGeometry(settings.value("MainWindow/geometry"))
+        self.ui.restoreState(settings.value("MainWindow/windowState"))
+        
+        if settings.value("App/lang") is not None :
+            self.langue=settings.value("App/lang")
+        else :
+            self.langue='FR'
+            
+        if settings.value("Shg/foc") is not None :
+            self.shg_foc_camera_other=settings.value("Shg/foc")
+        else :
+            self.shg_foc_camera_other='0'
+        
+        if settings.value("Shg/angle") is not None :
+            self.shg_angle_other=settings.value("Shg/angle")
+        else :
+            self.shg_angle_other='0'
+        
+        if settings.value("App/save") is not None :
+            valeur_json= settings.value("App/save", "{}")
+            self.files_to_save = json.loads(valeur_json)
+        else :
+            self.files_to_save={'disk': True, 'raw':True, 'color' : True, "inv" : False, "mix" :False, "diff" : False, "sum": False, "x0x1x2" : False, "dop":False}
+        
+        if settings.value("App/db") is not None :
+            valeur_json= settings.value("App/db", "{}")
+            self.bass_entete = json.loads(valeur_json)
+        else :
+            self.bass_entete ={'observer':'', 'instru':'','wave_label':'Manual', 'lat':'0', 'long':'0',
+                               'camera':'', 'spectro':'SOLEX',"pixel":'0','objcollim':'80', 'objcam':'125', 'focinstru':'0',
+                                'diaminstru':'0', 'waveID':0, "binID":0, 'reseau':'2400', 'ordre':'1',
+                                'contact':'', 'angle':'24','fentelong':'4.5', 'fentelarg':'10',
+                                'diaph' : '0', 'dfilter' : ''}
+        
+        
+        if self.ui.dock_console.isFloating() :
+            dock_geometry = self.ui.dock_console.geometry()
+            visible = any (screen.geometry().intersects(dock_geometry) for screen in QtGui.QGuiApplication.screens())
+            if not visible :
+                screen_geom = QtGui.QGuiApplication.primaryScreen().availableGeometry()
+                new_geom = QRect (screen_geom.x()+50, screen_geom.y()+50,dock_geometry.width(), dock_geometry.height())
+                self.ui.dock_console.setGeometry(new_geom)
+            
+    
+    
+    def write_settings(self) :
+        # force docks non floating
+        #self.ui.dock_console.setFloating(False)
+        #self.addDockWidget(Qt.BottomDockWidgetArea, self.ui.dock_console)
+        self.bass_entete['observer'] = self.ui.db_observer_text.text()
+        self.bass_entete['instru'] = self.ui.db_instru_text.text()
+        self.bass_entete['lat'] = self.ui.db_lat_text.text()
+        self.bass_entete['long'] = self.ui.db_long_text.text()
+        self.bass_entete['wavelength'] = self.list_wave[1][self.ui.db_wave_text.currentIndex()]
+        self.bass_entete['wave_label'] = self.ui.db_wave_text.currentText()
+        self.bass_entete['version']= "INTI "+self.version
+        self.bass_entete['waveID']=self.ui.db_wave_text.currentIndex()
+        self.bass_entete['binID']=self.ui.db_binning_combo.currentIndex()
+        
+        # sauve settings
+        settings=QSettings("Desnoux Buil", "inti_qt")
+        settings.setValue("MainWindow/geometry", self.ui.saveGeometry())
+        settings.setValue("MainWindow/windowState", self.ui.saveState())
+        settings.setValue("App/lang", self.langue)
+        #settings.setValue("App/tab_index", self.ui.tab_main.currentIndex())
+        settings.setValue("App/save", json.dumps(self.files_to_save))
+        settings.setValue("App/db", json.dumps(self.bass_entete))
+        #settings.setValue("Shg/foc", self.shg_foc_camera_other)
+        #settings.setValue("Shg/angle", self.shg_angle_other)
+        
+    def read_ini(self) :
+        # recuperation des parametres de configuration memorisé au dernier traitement
+        # --------------------------------------------------------------------------------------
+
+        # inti.yaml is a bootstart file to read last directory used by app
+        # this file is stored in the module directory
+        self.my_ini=data_path('inti.yaml')
+        my_dictini={'directory':'', 'dec doppler':3, 'dec cont':15, 
+                    'size_pix_cam':'0.0024', 'bin_cam':'1',
+                    'poly_slit_a':0, "poly_slit_b":0,'poly_slit_c':0, 
+                    'ang_tilt':0, 'ratio_sysx':1,
+                    'free_autpoly':0, 'zee_autpoly':0,'poly_free_a':0,'poly_free_b':0,'poly_free_c':0,
+                    'pos_free_blue':0, 'pos_free_red':0, 'free_shift':0,
+                    'force_free_magn': False,
+                    'win_posx':300, 'win_posy':200, 'screen_scale':0,'observer':'', 'instru':'','site_long':0, 'site_lat':0,
+                    'angle P':0,'contact':'','wavelength':0, 'wave_label':'Manuel', 'inversion NS':0, 'inversion EW':0,
+                    'autocrop':1,'ext20pct':0, 'pos fente min':0, 'pos fente max':0,'trame couronne1':-25, 'trame couronne2':-5,
+                    "zeeman_shift":0, "reduction bruit":0, 'grid disk':'on', 'lang' :'FR', 'correction He':1, 'angP auto': 0,
+                    "zoom":0, "cont_only":0, "dop_color_force":0}
+    
+        poly=[]
+        Flags=self.Flags
+        
+        try:
+            with open(self.my_ini, "r") as f1:
+                my_dictini = yaml.safe_load(f1)
+        except:
+           
+           print('Création de inti.yaml comme : ', self.my_ini)
+           
+        
+        self.working_dir=my_dictini['directory']
+        self.dec_pix_dop=int(my_dictini['dec doppler'])
+        self.dec_pix_cont=int(my_dictini['dec cont'])
+        self.saved_tilt=float(my_dictini['ang_tilt'])
+        self.saved_angP=float(my_dictini['angle P'])
+        saved_ratio=float(my_dictini['ratio_sysx'])
+        if saved_ratio == 0 :
+            saved_ratio= 1
+        poly.append(float(my_dictini['poly_free_a']))
+        poly.append(float(my_dictini['poly_free_b']))
+        poly.append(float(my_dictini['poly_free_c']))
+        self.pos_free_blue=int(my_dictini['pos_free_blue'])
+        self.pos_free_red=int(my_dictini['pos_free_red'])
+        
+        # ces deux paramètres ne sont pas mémorisés dans le fichier ini
+        Flags['DOPFLIP']=0
+        Flags["SAVEPOLY"]=0
+        
+        if 'cont_only' in my_dictini :
+            Flags['Contonly']=my_dictini['cont_only']
+        else :
+            Flags['Contonly']=0
+            
+        if 'dop_color_force' in my_dictini :
+            Flags['dop_color_force']=my_dictini['dop_color_force']
+        else :
+            Flags['dop_color_force']=0
+            
+        if 'ext20pc' in my_dictini :
+            Flags['h20percent']=my_dictini['ext20pc']
+        else :
+            Flags['h20percent']=0
+        
+        if 'correction He' in my_dictini :
+            Flags["FREE_TRANS"]=my_dictini['correction He']
+        else :  
+            Flags["FREE_TRANS"]=1
+            
+        if 'inversion EW' in my_dictini:
+            Flags['FLIPRA']=my_dictini['inversion EW']
+            Flags['FLIPNS']=my_dictini['inversion NS']
+        else:
+            Flags['FLIPRA']=0
+            Flags['FLIPNS']=0
+            
+        if 'force_free_magn' in my_dictini :
+            Flags['FORCE_FREE_MAGN']  = my_dictini['force_free_magn']
+        else:
+            Flags['FORCE_FREE_MAGN'] = False
+        
+        if 'size_pix_cam' not in my_dictini:
+            # si pas dans fichier ini
+            my_dictini['size_pix_cam']='0.0024'
+            self.size_pix_cam='0.0024'
+        else :
+            self.size_pix_cam=my_dictini['size_pix_cam']
+        
+        if 'bin_cam' not in my_dictini:
+            my_dictini['bin_cam']='1'
+            self.bin_cam='1'
+        else:
+            self.bin_cam=my_dictini['bin_cam']
+         
+        if 'autocrop' not in my_dictini:
+            my_dictini['autocrop']='1'
+            Flags['Autocrop']=1
+        else:
+            Flags['Autocrop']=my_dictini['autocrop']
+            
+        if 'zoom' not in my_dictini:
+            my_dictini['zoom']='0'
+            Flags['zoom']=0
+        else:
+            Flags['zoom']=my_dictini['zoom']
+            
+        if 'free_autopoly' not in my_dictini:
+            my_dictini['free_autopoly']=0
+            Flags['FREE_AUTOPOLY']=0
+        else:
+            Flags['FREE_AUTOPOLY']=my_dictini['free_autopoly']
+        
+        if 'zee_autopoly' not in my_dictini:
+            my_dictini['zee_autopoly']=0
+            Flags['ZEE_AUTOPOLY']=0
+        else:
+            Flags['ZEE_AUTOPOLY']=my_dictini['zee_autopoly']
+            
+        if 'free_shift' not in my_dictini:
+            my_dictini['free_shift'] = 0 #decalage en mode zeeman
+            self.free_shift = 0
+        else :
+            self.free_shift = my_dictini['free_shift']
+            
+            
+        if 'zeeman_shift' not in my_dictini:
+            my_dictini['zeeman_shift'] = 0 #decalage en mode zeeman
+            self.zee_shift = 0
+        else :
+            self.zee_shift = my_dictini['zeeman_shift']
+            
+            
+        if 'reduction_bruit' not in my_dictini:
+            # si pas dans fichier ini
+            my_dictini['reduction_bruit']=0
+            Flags['NOISEREDUC'] = 0
+        else :
+            Flags['NOISEREDUC']=my_dictini['reduction_bruit']
+            
+        if 'angP auto' not in my_dictini:
+            # si pas dans fichier ini
+            my_dictini['angP auto']=1
+            self.ui.section_angP_auto_chk.setChecked(True)
+        else :
+            self.ui.section_angP_auto_chk.setChecked(my_dictini['angP auto'])
+            
+        if 'grid disk' not in my_dictini:
+            # si pas dans fichier ini
+            my_dictini['grid disk']='on'
+            self.grid_on=True
+            Flags['Grid'] = 1
+        else :
+            if my_dictini['grid disk'] == 'on' :
+                self.grid_on=True
+                Flags['Grid'] = 1
+            else :
+                self.grid_on=False
+                Flags['Grid'] = 0
+        
+        # param cas difficiles
+        if 'trame couronne1' not in my_dictini:
+            my_dictini['trame couronne1']='-25'
+        if 'trame couronne2' not in my_dictini:
+            my_dictini['trame couronne2']='-5'
+        if 'pos fente min' not in my_dictini:
+            my_dictini['pos fente min']='0'
+        if 'pos fente max' not in my_dictini:
+            my_dictini['pos fente max']='0'
+            
+        #gestion langue dans inti.yaml
+        if 'lang' not in my_dictini :
+            my_dictini['lang']='FR'
+            LG_str='FR'
+            cfg.LG=1
+        else :
+            LG_str = my_dictini['lang']
+            if LG_str == 'FR' : cfg.LG=1
+            if LG_str !='FR' : cfg.LG=2
+            
+                    
+        #self.param=[my_dictini['pos fente min'],my_dictini['pos fente max'],my_dictini['crop fixe hauteur'],my_dictini['crop fixe largeur']]
+        #force à 0 le crop fixe car gerer par une interface
+        self.param=[my_dictini['pos fente min'],my_dictini['pos fente max'],0,0,my_dictini['trame couronne1'],my_dictini['trame couronne2']]
+        #win_pos=(w_posx,w_posy)
+        """
+        self.data_entete=[my_dictini['observer'], my_dictini['instru'],float(my_dictini['site_long']),float(my_dictini['site_lat']),my_dictini['contact'],
+                     my_dictini['wavelength'],my_dictini['wave_label']]
+        """
+        self.Flags=Flags
+        self.my_dictini=my_dictini
+        self.polynome = poly
+        
+        # met à jour l'interface UI
+        self.ui.section_reduc_chk.setChecked(self.Flags['NOISEREDUC'])
+        self.ui.section_autocrop_chk.setChecked(self.Flags['Autocrop'])
+        self.ui.inti_h20_radio.setChecked(self.Flags['h20percent'])
+        self.ui.section_zoom_chk.setChecked(self.Flags['zoom'])
+        self.ui.free_tilt_chk.setChecked(self.Flags["FORCE_FREE_MAGN"])
+        self.ui.magnet_tilt_chk.setChecked(self.Flags["FORCE_FREE_MAGN"])
+        self.ui.section_grid_chk.setChecked( self.Flags['Grid'])
+        self.ui.ori_inv_EW_chk.setChecked(self.Flags['FLIPRA'])
+        self.ui.ori_inv_NS_chk.setChecked(self.Flags['FLIPNS'])
+        self.ui.free_poly_auto_chk.setChecked(self.Flags['FREE_AUTOPOLY'])
+        self.ui.magnet_poly_auto_chk.setChecked(self.Flags['ZEE_AUTOPOLY'])
+        self.ui.inti_dir_lbl.setText(self.working_dir)
+        self.ui.dop_groupbox.setChecked(self.Flags['Contonly'])
+        self.ui.dop_color_force_chk.setChecked(self.Flags['dop_color_force'])
+        
+        
+        self.ui.db_observer_text.setText(self.bass_entete['observer'])
+        self.ui.db_instru_text.setText(self.bass_entete['instru'])
+        self.ui.db_lat_text.setText(str(self.bass_entete['lat']))
+        self.ui.db_long_text.setText(str(self.bass_entete['long']))
+        self.ui.db_wave_text.setCurrentText(self.bass_entete['wave_label'])
+        self.ui.db_binning_combo.setCurrentIndex(self.bass_entete['binID'])
+        
+        self.ui.free_a_text.setText("{:5f}".format(self.my_dictini['poly_free_a']))
+        self.ui.free_b_text.setText("{:5f}".format(self.my_dictini['poly_free_b']))
+        self.ui.free_c_text.setText("{:5f}".format(self.my_dictini['poly_free_c']))
+        self.ui.magnet_a_text.setText("{:5f}".format(self.my_dictini['poly_free_a']))
+        self.ui.magnet_b_text.setText("{:5f}".format(self.my_dictini['poly_free_b']))
+        self.ui.magnet_c_text.setText("{:5f}".format(self.my_dictini['poly_free_c']))
+        self.ui.magnet_shift_text.setText(str(self.my_dictini['zeeman_shift']))
+        self.ui.free_shift_text.setText(str(self.my_dictini['free_shift']))
+        
+        self.ui.dop_shift_text.setText(str(self.my_dictini['dec doppler']))
+        self.ui.dop_conti_shift_text.setText(str(self.my_dictini['dec cont']))
+        self.ui.free_shift1_text.setText(str(self.my_dictini['pos_free_blue']))
+        self.ui.free_shift2_text.setText(str(self.my_dictini['pos_free_red']))
+        #self.my_dictini['wavelength'] = self.list_wave[1][self.ui.db_wave_text.currentIndex()]
+        
+        self.ui.lang_button.setText(LG_str)
+
+        self.get_Flags_tab()
+        
+    def save_ini(self) :
+        Flags= self.Flags
+        #data_entete=self.data_entete
+        # recupère les données de l'UI !!! shift 1 et 2 changent si free mode
+        self.Shift.append(float(self.ui.inti_shift_text.text()))
+        self.Shift.append(int(self.ui.dop_shift_text.text()))
+        self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
+        self.Shift.append(float(self.ui.free_shift_text.text()))
+        self.Shift.append(float(self.ui.magnet_shift_text.text()))
+        #self.polynome =[0,0,0] # !!! 
+        
+        app_tab= self.ui.tab_main.currentIndex()
+        # on se base sur l'index car les noms sont traduits
+        # 0-General, 1-Doppler, 2-Volume, 3-Magnet, 4-Free
+        if app_tab == 4 :
+            self.Flags['WEAK'] =True
+        else:
+            self.Flags['WEAK'] =False
+        if app_tab == 3 :
+            self.Flags['POL'] =True
+        else :
+            self.Flags['POL'] =False
+            
+        self.Flags['NOISEREDUC']=self.ui.section_reduc_chk.isChecked()
+        self.Flags['Autocrop']=self.ui.section_autocrop_chk.isChecked()
+        self.Flags['zoom']=self.ui.section_zoom_chk.isChecked()
+        self.Flags["FORCE_FREE_MAGN"]=self.ui.free_tilt_chk.isChecked() or self.ui.magnet_tilt_chk.isChecked() 
+        self.Flags['Grid']=self.ui.section_grid_chk.isChecked()
+        self.Flags['FLIPRA']=self.ui.ori_inv_EW_chk.isChecked()
+        self.Flags['FLIPNS']=self.ui.ori_inv_NS_chk.isChecked()
+        self.Flags['FREE_AUTOPOLY']=self.ui.free_poly_auto_chk.isChecked()
+        self.Flags['ZEE_AUTOPOLY']=self.ui.magnet_poly_auto_chk.isChecked()
+        self.Flags['h20percent'] = self.ui.inti_h20_radio.isChecked()
+        self.Flags['Contonly'] = self.ui.dop_groupbox.isChecked()
+        self.Flags['dop_color_force'] = self.ui.dop_color_force_chk.isChecked()
+        
+        
+        self.my_dictini['lang']=self.langue
+        #print(self.langue)
+        self.my_dictini['directory']=self.working_dir
+        if self.Flags['Grid']==True :
+            self.my_dictini['grid disk']='on'
+        else:
+            self.my_dictini['grid disk']='off'
+        """
+        self.my_dictini['observer'] = self.ui.db_observer_text.text()
+        self.my_dictini['instru'] = self.ui.db_instru_text.text()
+        self.my_dictini['site_lat'] = float(self.ui.db_lat_text.text())
+        self.my_dictini['site_long'] = float(self.ui.db_long_text.text())
+        self.my_dictini['contact'] = self.ui.db_contact_text.text()
+        self.my_dictini['wave_label'] = self.ui.db_wave_text.currentText()
+        self.my_dictini['wavelength'] = self.list_wave[1][self.ui.db_wave_text.currentIndex()]
+        """
+        self.my_dictini['inversion EW']=Flags['FLIPRA']
+        self.my_dictini['inversion NS']=Flags['FLIPNS']
+        self.my_dictini['size_pix_cam']=self.size_pix_cam
+        self.my_dictini['bin_cam']=self.bin_cam
+        self.my_dictini['autocrop']=self.Flags['Autocrop']
+        self.my_dictini['ext20pc']=self.Flags['h20percent']
+        self.my_dictini['zoom']=self.Flags['zoom']
+        #self.my_dictini['grid disk']=self.Flags['Grid']
+        self.my_dictini['pos fente min']=self.param[0]
+        self.my_dictini['pos fente max']=self.param[1]
+        self.my_dictini['trame couronne1']=self.param[4]
+        self.my_dictini['trame couronne2']=self.param[5]
+        self.my_dictini['force_free_magn'] = Flags["FORCE_FREE_MAGN"]
+        self.my_dictini['zeeman_shift'] = self.Shift[4]
+        self.my_dictini['reduction_bruit'] = Flags['NOISEREDUC']
+        self.my_dictini['angP auto']= self.ui.section_angP_auto_chk.isChecked()
+        
+        #if Flags['WEAK']:
+        self.my_dictini['free_autopoly']=Flags['FREE_AUTOPOLY']
+        self.my_dictini['zee_autopoly']=Flags['ZEE_AUTOPOLY']
+        self.my_dictini['pos_free_blue']= int(self.ui.free_shift1_text.text())   # round(0+self.Shift[1])
+        self.my_dictini['pos_free_red']= int(self.ui.free_shift2_text.text())    # round(0+self.Shift[2])
+        #self.my_dictini['pos_free_blue']=round(0+float(self.ui.free_shift1_text.text()))
+        #self.my_dictini['pos_free_red']=round(0+float(self.ui.free_shift2_text.text()))
+        self.my_dictini['free_shift'] = float(self.ui.free_shift_text.text()) #self.Shift[3]
+        #self.my_dictini['free_shift'] = float(self.ui.free_shift_text.text())
+       
+        self.my_dictini['dec doppler']= int(self.ui.dop_shift_text.text())    # self.Shift[1]
+        self.my_dictini['dec cont']= int(self.ui.dop_conti_shift_text.text()) # self.Shift[2]
+        self.my_dictini['cont_only']=self.Flags['Contonly']
+        self.my_dictini['dop_color_force']= self.Flags['dop_color_force']
+
+        self.my_dictini['ang_tilt']=self.ang_tilt
+        self.my_dictini['angle P']=0 # ne conserve pas angle P pour eviter confusion
+        self.my_dictini['ratio_sysx']=self.ratio_fixe
+
+        self.my_dictini['correction He']= Flags['FREE_TRANS']
+        
+        if Flags['WEAK']==False and Flags['POL']==False:
+            self.my_dictini['poly_slit_a']=float(self.polynome[0])
+            self.my_dictini['poly_slit_b']=float(self.polynome[1])
+            self.my_dictini['poly_slit_c']=float(self.polynome[2])
+        else:
+            self.my_dictini['poly_free_a']=float(self.polynome[0])
+            self.my_dictini['poly_free_b']=float(self.polynome[1])
+            self.my_dictini['poly_free_c']=float(self.polynome[2])
+            self.my_dictini['poly_slit_a']=0
+            self.my_dictini['poly_slit_b']=0
+            self.my_dictini['poly_slit_c']=0
+            
+        if Flags["SAVEPOLY"] != 0 :
+            #on met ajour les params poly dans mode free et magn
+            self.my_dictini['poly_free_a']=float(self.polynome[0])
+            self.my_dictini['poly_free_b']=float(self.polynome[1])
+            self.my_dictini['poly_free_c']=float(self.polynome[2])
+            
+        if Flags['WEAK']==True and Flags['FREE_AUTOPOLY']==1 :
+            self.my_dictini['poly_free_a']=float(self.polynome[0])
+            self.my_dictini['poly_free_b']=float(self.polynome[1])
+            self.my_dictini['poly_free_c']=float(self.polynome[2])
+            
+        if Flags['POL']==True and Flags['FREE_AUTOPOLY']==1 :
+            self.my_dictini['poly_free_a']=float(self.polynome[0])
+            self.my_dictini['poly_free_b']=float(self.polynome[1])
+            self.my_dictini['poly_free_c']=float(self.polynome[2])
+        
+            
+        # sauvegarde
+        try:
+            with open(self.my_ini, "w") as f1:
+                yaml.dump(self.my_dictini, f1, sort_keys=False)
+                #print(self.my_ini)
+        except :
+            print (self.tr('Erreur à la sauvegarde de inti_ini.yaml : '), self.my_ini)
 
     def add_text(self, text) :
         self.ui.log_edit.append(text)
@@ -485,7 +926,7 @@ class main_wnd_UI(QMainWindow) :
                     fits_dateobs, nbframe, scan_size=get_data_ser(last_file)
                     
                     print(self.short_name(last_file))
-                    print("H : "+str(scan_size[1])+" L : "+str(nbframe))
+                    print("H : "+str(scan_size[1])+" Nb frames : "+str(nbframe))
                     self.ui.ori_date_text.setText(fits_dateobs)
                     #print(fits_dateobs)
                     angP, paramB0, longL0, RotCarr = angle_P_B0(fits_dateobs)
@@ -870,7 +1311,7 @@ class main_wnd_UI(QMainWindow) :
                 ImgFile=self.basefich+'_recon.fits'   
             else :
                 ImgFile=self.basefich+'_dp'+str(int(self.Shift[0]))+'_cont.fits'
-                suff[1]='cont'
+                suff[1]='_dp'+str(int(self.Shift[0]))+'_cont'
         else :
             ImgFile=self.basefich+'_dp'+str(range_dec[0])+'_recon.fits'
            
@@ -1454,14 +1895,15 @@ class main_wnd_UI(QMainWindow) :
                 DiskHDU.writeto(self.basefich_comple+'_sum.fits', overwrite='True')
             
         if self.Flags['DOPCONT'] and not self.Flags['Contonly'] :
-            DiskHDU=fits.PrimaryHDU(moy_doppler,header)
-            DiskHDU.writeto(self.basefich_comple+'_moy.fits', overwrite='True')
-            
-            DiskHDU=fits.PrimaryHDU(dop1,header)
-            DiskHDU.writeto(self.basefich_comple+'_dop1.fits', overwrite='True')
-
-            DiskHDU=fits.PrimaryHDU(dop2,header)
-            DiskHDU.writeto(self.basefich_comple+'_dop2.fits', overwrite='True')
+            if self.files_to_save['dop']:
+                DiskHDU=fits.PrimaryHDU(moy_doppler,header)
+                DiskHDU.writeto(self.basefich_comple+'_moy.fits', overwrite='True')
+                
+                DiskHDU=fits.PrimaryHDU(dop1,header)
+                DiskHDU.writeto(self.basefich_comple+'_dop1.fits', overwrite='True')
+    
+                DiskHDU=fits.PrimaryHDU(dop2,header)
+                DiskHDU.writeto(self.basefich_comple+'_dop2.fits', overwrite='True')
 
         
         if self.Flags['POL']:
@@ -1542,6 +1984,8 @@ class main_wnd_UI(QMainWindow) :
         # ratio_fixe, ang_tilt
         self.ratio_fixe= float(self.ui.inti_ratio_text.text())
         self.ang_tilt = self.ui.inti_tilt_text.text()
+        
+        # les shifts
         if self.Flags["WEAK"] :
             poly=[]
             poly.append(float(self.ui.free_a_text.text()))
@@ -1588,7 +2032,11 @@ class main_wnd_UI(QMainWindow) :
                 self.ang_tilt=0
         
         self.Flags["FORCE_FREE_MAGN"]=self.ui.magnet_tilt_chk.isChecked() or self.ui.free_tilt_chk.isChecked()
-        self.Shift.append(float(self.ui.inti_shift_text.text()))
+        
+        if self.Flags["DOPCONT"] :
+            self.Shift.append(0)   
+        else :
+            self.Shift.append(float(self.ui.inti_shift_text.text()))
         self.Shift.append(int(self.ui.dop_shift_text.text()))
         self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
 
@@ -1759,7 +2207,7 @@ class main_wnd_UI(QMainWindow) :
     
             
     def inti_calc (self) :
-        self.my_calc=calc_dialog()
+        self.my_calc=calc_dialog(self.shg_foc_camera_other, self.shg_angle_other)
         self.my_calc.show()
     
     
@@ -1768,368 +2216,9 @@ class main_wnd_UI(QMainWindow) :
     # fonctions utilitaires
     #--------------------------------------------------------------------------
     
-    def save_ini(self) :
-        Flags= self.Flags
-        #data_entete=self.data_entete
-        # recupère les données de l'UI !!! shift 1 et 2 changent si free mode
-        self.Shift.append(float(self.ui.inti_shift_text.text()))
-        self.Shift.append(int(self.ui.dop_shift_text.text()))
-        self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
-        self.Shift.append(float(self.ui.free_shift_text.text()))
-        self.Shift.append(float(self.ui.magnet_shift_text.text()))
-        #self.polynome =[0,0,0] # !!! 
-        
-        app_tab= self.ui.tab_main.currentIndex()
-        # on se base sur l'index car les noms sont traduits
-        # 0-General, 1-Doppler, 2-Volume, 3-Magnet, 4-Free
-        if app_tab == 4 :
-            self.Flags['WEAK'] =True
-        else:
-            self.Flags['WEAK'] =False
-        if app_tab == 3 :
-            self.Flags['POL'] =True
-        else :
-            self.Flags['POL'] =False
-            
-        self.Flags['NOISEREDUC']=self.ui.section_reduc_chk.isChecked()
-        self.Flags['Autocrop']=self.ui.section_autocrop_chk.isChecked()
-        self.Flags['zoom']=self.ui.section_zoom_chk.isChecked()
-        self.Flags["FORCE_FREE_MAGN"]=self.ui.free_tilt_chk.isChecked() or self.ui.magnet_tilt_chk.isChecked() 
-        self.Flags['Grid']=self.ui.section_grid_chk.isChecked()
-        self.Flags['FLIPRA']=self.ui.ori_inv_EW_chk.isChecked()
-        self.Flags['FLIPNS']=self.ui.ori_inv_NS_chk.isChecked()
-        self.Flags['FREE_AUTOPOLY']=self.ui.free_poly_auto_chk.isChecked()
-        self.Flags['ZEE_AUTOPOLY']=self.ui.magnet_poly_auto_chk.isChecked()
-        self.Flags['h20percent'] = self.ui.inti_h20_radio.isChecked()
-        self.Flags['Contonly'] = self.ui.dop_groupbox.isChecked()
-        self.Flags['dop_color_force'] = self.ui.dop_color_force_chk.isChecked()
-        
-        
-        self.my_dictini['lang']=self.langue
-        #print(self.langue)
-        self.my_dictini['directory']=self.working_dir
-        if self.Flags['Grid']==True :
-            self.my_dictini['grid disk']='on'
-        else:
-            self.my_dictini['grid disk']='off'
-        """
-        self.my_dictini['observer'] = self.ui.db_observer_text.text()
-        self.my_dictini['instru'] = self.ui.db_instru_text.text()
-        self.my_dictini['site_lat'] = float(self.ui.db_lat_text.text())
-        self.my_dictini['site_long'] = float(self.ui.db_long_text.text())
-        self.my_dictini['contact'] = self.ui.db_contact_text.text()
-        self.my_dictini['wave_label'] = self.ui.db_wave_text.currentText()
-        self.my_dictini['wavelength'] = self.list_wave[1][self.ui.db_wave_text.currentIndex()]
-        """
-        self.my_dictini['inversion EW']=Flags['FLIPRA']
-        self.my_dictini['inversion NS']=Flags['FLIPNS']
-        self.my_dictini['size_pix_cam']=self.size_pix_cam
-        self.my_dictini['bin_cam']=self.bin_cam
-        self.my_dictini['autocrop']=self.Flags['Autocrop']
-        self.my_dictini['ext20pc']=self.Flags['h20percent']
-        self.my_dictini['zoom']=self.Flags['zoom']
-        #self.my_dictini['grid disk']=self.Flags['Grid']
-        self.my_dictini['pos fente min']=self.param[0]
-        self.my_dictini['pos fente max']=self.param[1]
-        self.my_dictini['trame couronne1']=self.param[4]
-        self.my_dictini['trame couronne2']=self.param[5]
-        self.my_dictini['force_free_magn'] = Flags["FORCE_FREE_MAGN"]
-        self.my_dictini['zeeman_shift'] = self.Shift[4]
-        self.my_dictini['reduction_bruit'] = Flags['NOISEREDUC']
-        self.my_dictini['angP auto']= self.ui.section_angP_auto_chk.isChecked()
-        
-        #if Flags['WEAK']:
-        self.my_dictini['free_autopoly']=Flags['FREE_AUTOPOLY']
-        self.my_dictini['zee_autopoly']=Flags['ZEE_AUTOPOLY']
-        self.my_dictini['pos_free_blue']= int(self.ui.free_shift1_text.text())   # round(0+self.Shift[1])
-        self.my_dictini['pos_free_red']= int(self.ui.free_shift2_text.text())    # round(0+self.Shift[2])
-        #self.my_dictini['pos_free_blue']=round(0+float(self.ui.free_shift1_text.text()))
-        #self.my_dictini['pos_free_red']=round(0+float(self.ui.free_shift2_text.text()))
-        self.my_dictini['free_shift'] = float(self.ui.free_shift_text.text()) #self.Shift[3]
-        #self.my_dictini['free_shift'] = float(self.ui.free_shift_text.text())
-       
-        self.my_dictini['dec doppler']= int(self.ui.dop_shift_text.text())    # self.Shift[1]
-        self.my_dictini['dec cont']= int(self.ui.dop_conti_shift_text.text()) # self.Shift[2]
-        self.my_dictini['cont_only']=self.Flags['Contonly']
-        self.my_dictini['dop_color_force']= self.Flags['dop_color_force']
-
-        self.my_dictini['ang_tilt']=self.ang_tilt
-        self.my_dictini['angle P']=0 # ne conserve pas angle P pour eviter confusion
-        self.my_dictini['ratio_sysx']=self.ratio_fixe
-
-        self.my_dictini['correction He']= Flags['FREE_TRANS']
-        
-        if Flags['WEAK']==False and Flags['POL']==False:
-            self.my_dictini['poly_slit_a']=float(self.polynome[0])
-            self.my_dictini['poly_slit_b']=float(self.polynome[1])
-            self.my_dictini['poly_slit_c']=float(self.polynome[2])
-        else:
-            self.my_dictini['poly_free_a']=float(self.polynome[0])
-            self.my_dictini['poly_free_b']=float(self.polynome[1])
-            self.my_dictini['poly_free_c']=float(self.polynome[2])
-            self.my_dictini['poly_slit_a']=0
-            self.my_dictini['poly_slit_b']=0
-            self.my_dictini['poly_slit_c']=0
-            
-        if Flags["SAVEPOLY"] != 0 :
-            #on met ajour les params poly dans mode free et magn
-            self.my_dictini['poly_free_a']=float(self.polynome[0])
-            self.my_dictini['poly_free_b']=float(self.polynome[1])
-            self.my_dictini['poly_free_c']=float(self.polynome[2])
-            
-        if Flags['WEAK']==True and Flags['FREE_AUTOPOLY']==1 :
-            self.my_dictini['poly_free_a']=float(self.polynome[0])
-            self.my_dictini['poly_free_b']=float(self.polynome[1])
-            self.my_dictini['poly_free_c']=float(self.polynome[2])
-            
-        if Flags['POL']==True and Flags['FREE_AUTOPOLY']==1 :
-            self.my_dictini['poly_free_a']=float(self.polynome[0])
-            self.my_dictini['poly_free_b']=float(self.polynome[1])
-            self.my_dictini['poly_free_c']=float(self.polynome[2])
-        
-            
-        # sauvegarde
-        try:
-            with open(self.my_ini, "w") as f1:
-                yaml.dump(self.my_dictini, f1, sort_keys=False)
-                #print(self.my_ini)
-        except :
-            print (self.tr('Erreur à la sauvegarde de inti_ini.yaml : '), self.my_ini)
     
-    def read_ini(self) :
-        # recuperation des parametres de configuration memorisé au dernier traitement
-        # --------------------------------------------------------------------------------------
-
-        # inti.yaml is a bootstart file to read last directory used by app
-        # this file is stored in the module directory
-        self.my_ini=data_path('inti.yaml')
-        my_dictini={'directory':'', 'dec doppler':3, 'dec cont':15, 
-                    'size_pix_cam':'0.0024', 'bin_cam':'1',
-                    'poly_slit_a':0, "poly_slit_b":0,'poly_slit_c':0, 
-                    'ang_tilt':0, 'ratio_sysx':1,
-                    'free_autpoly':0, 'zee_autpoly':0,'poly_free_a':0,'poly_free_b':0,'poly_free_c':0,
-                    'pos_free_blue':0, 'pos_free_red':0, 'free_shift':0,
-                    'force_free_magn': False,
-                    'win_posx':300, 'win_posy':200, 'screen_scale':0,'observer':'', 'instru':'','site_long':0, 'site_lat':0,
-                    'angle P':0,'contact':'','wavelength':0, 'wave_label':'Manuel', 'inversion NS':0, 'inversion EW':0,
-                    'autocrop':1,'ext20pct':0, 'pos fente min':0, 'pos fente max':0,'trame couronne1':-25, 'trame couronne2':-5,
-                    "zeeman_shift":0, "reduction bruit":0, 'grid disk':'on', 'lang' :'FR', 'correction He':1, 'angP auto': 0,
-                    "zoom":0, "cont_only":0, "dop_color_force":0}
     
-        poly=[]
-        Flags=self.Flags
-        
-        try:
-            with open(self.my_ini, "r") as f1:
-                my_dictini = yaml.safe_load(f1)
-        except:
-           
-           print('Création de inti.yaml comme : ', self.my_ini)
-           
-        
-        self.working_dir=my_dictini['directory']
-        self.dec_pix_dop=int(my_dictini['dec doppler'])
-        self.dec_pix_cont=int(my_dictini['dec cont'])
-        self.saved_tilt=float(my_dictini['ang_tilt'])
-        self.saved_angP=float(my_dictini['angle P'])
-        saved_ratio=float(my_dictini['ratio_sysx'])
-        if saved_ratio == 0 :
-            saved_ratio= 1
-        poly.append(float(my_dictini['poly_free_a']))
-        poly.append(float(my_dictini['poly_free_b']))
-        poly.append(float(my_dictini['poly_free_c']))
-        self.pos_free_blue=int(my_dictini['pos_free_blue'])
-        self.pos_free_red=int(my_dictini['pos_free_red'])
-        
-        # ces deux paramètres ne sont pas mémorisés dans le fichier ini
-        Flags['DOPFLIP']=0
-        Flags["SAVEPOLY"]=0
-        
-        if 'cont_only' in my_dictini :
-            Flags['Contonly']=my_dictini['cont_only']
-        else :
-            Flags['Contonly']=0
-            
-        if 'dop_color_force' in my_dictini :
-            Flags['dop_color_force']=my_dictini['dop_color_force']
-        else :
-            Flags['dop_color_force']=0
-            
-        if 'ext20pc' in my_dictini :
-            Flags['h20percent']=my_dictini['ext20pc']
-        else :
-            Flags['h20percent']=0
-        
-        if 'correction He' in my_dictini :
-            Flags["FREE_TRANS"]=my_dictini['correction He']
-        else :  
-            Flags["FREE_TRANS"]=1
-            
-        if 'inversion EW' in my_dictini:
-            Flags['FLIPRA']=my_dictini['inversion EW']
-            Flags['FLIPNS']=my_dictini['inversion NS']
-        else:
-            Flags['FLIPRA']=0
-            Flags['FLIPNS']=0
-            
-        if 'force_free_magn' in my_dictini :
-            Flags['FORCE_FREE_MAGN']  = my_dictini['force_free_magn']
-        else:
-            Flags['FORCE_FREE_MAGN'] = False
-        
-        if 'size_pix_cam' not in my_dictini:
-            # si pas dans fichier ini
-            my_dictini['size_pix_cam']='0.0024'
-            self.size_pix_cam='0.0024'
-        else :
-            self.size_pix_cam=my_dictini['size_pix_cam']
-        
-        if 'bin_cam' not in my_dictini:
-            my_dictini['bin_cam']='1'
-            self.bin_cam='1'
-        else:
-            self.bin_cam=my_dictini['bin_cam']
-         
-        if 'autocrop' not in my_dictini:
-            my_dictini['autocrop']='1'
-            Flags['Autocrop']=1
-        else:
-            Flags['Autocrop']=my_dictini['autocrop']
-            
-        if 'zoom' not in my_dictini:
-            my_dictini['zoom']='0'
-            Flags['zoom']=0
-        else:
-            Flags['zoom']=my_dictini['zoom']
-            
-        if 'free_autopoly' not in my_dictini:
-            my_dictini['free_autopoly']=0
-            Flags['FREE_AUTOPOLY']=0
-        else:
-            Flags['FREE_AUTOPOLY']=my_dictini['free_autopoly']
-        
-        if 'zee_autopoly' not in my_dictini:
-            my_dictini['zee_autopoly']=0
-            Flags['ZEE_AUTOPOLY']=0
-        else:
-            Flags['ZEE_AUTOPOLY']=my_dictini['zee_autopoly']
-            
-        if 'free_shift' not in my_dictini:
-            my_dictini['free_shift'] = 0 #decalage en mode zeeman
-            self.free_shift = 0
-        else :
-            self.free_shift = my_dictini['free_shift']
-            
-            
-        if 'zeeman_shift' not in my_dictini:
-            my_dictini['zeeman_shift'] = 0 #decalage en mode zeeman
-            self.zee_shift = 0
-        else :
-            self.zee_shift = my_dictini['zeeman_shift']
-            
-            
-        if 'reduction_bruit' not in my_dictini:
-            # si pas dans fichier ini
-            my_dictini['reduction_bruit']=0
-            Flags['NOISEREDUC'] = 0
-        else :
-            Flags['NOISEREDUC']=my_dictini['reduction_bruit']
-            
-        if 'angP auto' not in my_dictini:
-            # si pas dans fichier ini
-            my_dictini['angP auto']=1
-            self.ui.section_angP_auto_chk.setChecked(True)
-        else :
-            self.ui.section_angP_auto_chk.setChecked(my_dictini['angP auto'])
-            
-        if 'grid disk' not in my_dictini:
-            # si pas dans fichier ini
-            my_dictini['grid disk']='on'
-            self.grid_on=True
-            Flags['Grid'] = 1
-        else :
-            if my_dictini['grid disk'] == 'on' :
-                self.grid_on=True
-                Flags['Grid'] = 1
-            else :
-                self.grid_on=False
-                Flags['Grid'] = 0
-        
-        # param cas difficiles
-        if 'trame couronne1' not in my_dictini:
-            my_dictini['trame couronne1']='-25'
-        if 'trame couronne2' not in my_dictini:
-            my_dictini['trame couronne2']='-5'
-        if 'pos fente min' not in my_dictini:
-            my_dictini['pos fente min']='0'
-        if 'pos fente max' not in my_dictini:
-            my_dictini['pos fente max']='0'
-            
-        #gestion langue dans inti.yaml
-        if 'lang' not in my_dictini :
-            my_dictini['lang']='FR'
-            LG_str='FR'
-            cfg.LG=1
-        else :
-            LG_str = my_dictini['lang']
-            if LG_str == 'FR' : cfg.LG=1
-            if LG_str !='FR' : cfg.LG=2
-            
-                    
-        #self.param=[my_dictini['pos fente min'],my_dictini['pos fente max'],my_dictini['crop fixe hauteur'],my_dictini['crop fixe largeur']]
-        #force à 0 le crop fixe car gerer par une interface
-        self.param=[my_dictini['pos fente min'],my_dictini['pos fente max'],0,0,my_dictini['trame couronne1'],my_dictini['trame couronne2']]
-        #win_pos=(w_posx,w_posy)
-        """
-        self.data_entete=[my_dictini['observer'], my_dictini['instru'],float(my_dictini['site_long']),float(my_dictini['site_lat']),my_dictini['contact'],
-                     my_dictini['wavelength'],my_dictini['wave_label']]
-        """
-        self.Flags=Flags
-        self.my_dictini=my_dictini
-        self.polynome = poly
-        
-        # met à jour l'interface UI
-        self.ui.section_reduc_chk.setChecked(self.Flags['NOISEREDUC'])
-        self.ui.section_autocrop_chk.setChecked(self.Flags['Autocrop'])
-        self.ui.inti_h20_radio.setChecked(self.Flags['h20percent'])
-        self.ui.section_zoom_chk.setChecked(self.Flags['zoom'])
-        self.ui.free_tilt_chk.setChecked(self.Flags["FORCE_FREE_MAGN"])
-        self.ui.magnet_tilt_chk.setChecked(self.Flags["FORCE_FREE_MAGN"])
-        self.ui.section_grid_chk.setChecked( self.Flags['Grid'])
-        self.ui.ori_inv_EW_chk.setChecked(self.Flags['FLIPRA'])
-        self.ui.ori_inv_NS_chk.setChecked(self.Flags['FLIPNS'])
-        self.ui.free_poly_auto_chk.setChecked(self.Flags['FREE_AUTOPOLY'])
-        self.ui.magnet_poly_auto_chk.setChecked(self.Flags['ZEE_AUTOPOLY'])
-        self.ui.inti_dir_lbl.setText(self.working_dir)
-        self.ui.dop_groupbox.setChecked(self.Flags['Contonly'])
-        self.ui.dop_color_force_chk.setChecked(self.Flags['dop_color_force'])
-        
-        
-        self.ui.db_observer_text.setText(self.bass_entete['observer'])
-        self.ui.db_instru_text.setText(self.bass_entete['instru'])
-        self.ui.db_lat_text.setText(str(self.bass_entete['lat']))
-        self.ui.db_long_text.setText(str(self.bass_entete['long']))
-        self.ui.db_wave_text.setCurrentText(self.bass_entete['wave_label'])
-        self.ui.db_binning_combo.setCurrentIndex(self.bass_entete['binID'])
-        
-        self.ui.free_a_text.setText("{:5f}".format(self.my_dictini['poly_free_a']))
-        self.ui.free_b_text.setText("{:5f}".format(self.my_dictini['poly_free_b']))
-        self.ui.free_c_text.setText("{:5f}".format(self.my_dictini['poly_free_c']))
-        self.ui.magnet_a_text.setText("{:5f}".format(self.my_dictini['poly_free_a']))
-        self.ui.magnet_b_text.setText("{:5f}".format(self.my_dictini['poly_free_b']))
-        self.ui.magnet_c_text.setText("{:5f}".format(self.my_dictini['poly_free_c']))
-        self.ui.magnet_shift_text.setText(str(self.my_dictini['zeeman_shift']))
-        self.ui.free_shift_text.setText(str(self.my_dictini['free_shift']))
-        
-        self.ui.dop_shift_text.setText(str(self.my_dictini['dec doppler']))
-        self.ui.dop_conti_shift_text.setText(str(self.my_dictini['dec cont']))
-        self.ui.free_shift1_text.setText(str(self.my_dictini['pos_free_blue']))
-        self.ui.free_shift2_text.setText(str(self.my_dictini['pos_free_red']))
-        #self.my_dictini['wavelength'] = self.list_wave[1][self.ui.db_wave_text.currentIndex()]
-        
-        self.ui.lang_button.setText(LG_str)
-
-        self.get_Flags_tab()
+    
         
     def get_Flags_tab(self) :
         # check dernier tab
@@ -2250,12 +2339,6 @@ class main_wnd_UI(QMainWindow) :
             # on affiche la fenetre
             self.mygong.show()
             
-            w_w=self.myscreen_w*0.4
-            #r=self.myscreen_h/self.myscreen_w
-            w_h = (w_w*0.5)+9
-            if w_h > self.myscreen_h :
-                w_w=w_h*2
-            self.mygong.ui.resize(int(w_w), int(w_h))
             
             
         else :
@@ -2266,6 +2349,7 @@ class main_wnd_UI(QMainWindow) :
         
         self.ui.ori_inv_NS_chk.setChecked((inv_list[0]+self.ui.ori_inv_NS_chk.isChecked())%2)
         self.ui.ori_inv_EW_chk.setChecked((inv_list[1]+self.ui.ori_inv_EW_chk.isChecked())%2)
+        
         
     def ori_angP(self):
         fits_dateobs = self.ui.ori_date_text.text()
@@ -2458,65 +2542,7 @@ class main_wnd_UI(QMainWindow) :
         data = np.array( data, dtype='uint16')   # conversion en flottant 32 bits
         cv2.imwrite(name, data)
     
-    def read_settings(self):
-        settings=QSettings("Desnoux Buil", "inti_qt")
-        self.ui.restoreGeometry(settings.value("MainWindow/geometry"))
-        self.ui.restoreState(settings.value("MainWindow/windowState"))
-        
-        if settings.value("App/lang") is not None :
-            self.langue=settings.value("App/lang")
-        else :
-            self.langue='FR'
-        
-        if settings.value("App/save") is not None :
-            valeur_json= settings.value("App/save", "{}")
-            self.files_to_save = json.loads(valeur_json)
-        else :
-            self.files_to_save={'disk': True, 'raw':True, 'color' : True, "inv" : True, "mix" :False, "diff" : True, "sum": True, "x0x1x2" : True}
-        
-        if settings.value("App/db") is not None :
-            valeur_json= settings.value("App/db", "{}")
-            self.bass_entete = json.loads(valeur_json)
-        else :
-            self.bass_entete ={'observer':'', 'instru':'','wave_label':'Manual', 'lat':'0', 'long':'0',
-                               'camera':'', 'spectro':'SOLEX',"pixel":'0','objcollim':'80', 'objcam':'125', 'focinstru':'0',
-                                'diaminstru':'0', 'waveID':0, "binID":0, 'reseau':'2400', 'ordre':'1',
-                                'contact':'', 'angle':'24','fentelong':'4.5', 'fentelarg':'10',
-                                'diaph' : '0', 'dfilter' : ''}
-        
-        
-        if self.ui.dock_console.isFloating() :
-            dock_geometry = self.ui.dock_console.geometry()
-            visible = any (screen.geometry().intersects(dock_geometry) for screen in QtGui.QGuiApplication.screens())
-            if not visible :
-                screen_geom = QtGui.QGuiApplication.primaryScreen().availableGeometry()
-                new_geom = QRect (screen_geom.x()+50, screen_geom.y()+50,dock_geometry.width(), dock_geometry.height())
-                self.ui.dock_console.setGeometry(new_geom)
-            
     
-    
-    def write_settings(self) :
-        # force docks non floating
-        #self.ui.dock_console.setFloating(False)
-        #self.addDockWidget(Qt.BottomDockWidgetArea, self.ui.dock_console)
-        self.bass_entete['observer'] = self.ui.db_observer_text.text()
-        self.bass_entete['instru'] = self.ui.db_instru_text.text()
-        self.bass_entete['lat'] = self.ui.db_lat_text.text()
-        self.bass_entete['long'] = self.ui.db_long_text.text()
-        self.bass_entete['wavelength'] = self.list_wave[1][self.ui.db_wave_text.currentIndex()]
-        self.bass_entete['wave_label'] = self.ui.db_wave_text.currentText()
-        self.bass_entete['version']= "INTI "+self.version
-        self.bass_entete['waveID']=self.ui.db_wave_text.currentIndex()
-        self.bass_entete['binID']=self.ui.db_binning_combo.currentIndex()
-        
-        # sauve settings
-        settings=QSettings("Desnoux Buil", "inti_qt")
-        settings.setValue("MainWindow/geometry", self.ui.saveGeometry())
-        settings.setValue("MainWindow/windowState", self.ui.saveState())
-        settings.setValue("App/lang", self.langue)
-        #settings.setValue("App/tab_index", self.ui.tab_main.currentIndex())
-        settings.setValue("App/save", json.dumps(self.files_to_save))
-        settings.setValue("App/db", json.dumps(self.bass_entete))
     
     
     def name_to_png (self,filename):
@@ -2811,11 +2837,37 @@ class gong_wnd(QDialog) :
         
         ui_file.close()
         
+        # geometry écrans
+        screen_geom = QtGui.QGuiApplication.primaryScreen().availableGeometry()
+        self.dpr = QtGui.QGuiApplication.primaryScreen().devicePixelRatio()
+        self.myscreen_w = int(screen_geom.right()*self.dpr)
+        self.myscreen_h = int(screen_geom.bottom()*self.dpr)
+        
+        # settings
+        flag_reset=False
+        settings=QSettings("Desnoux Buil", "inti_qt")
+        if settings.value("GongWindow/geometry") and not flag_reset:
+
+            self.ui.restoreGeometry(settings.value("GongWindow/geometry"))
+        else :
+            w_w=self.myscreen_w*0.4
+            #r=self.myscreen_h/self.myscreen_w
+            w_h = (w_w*0.5)+9
+            if w_h > self.myscreen_h :
+                w_w=w_h*2
+            self.ui.resize(int(w_w), int(w_h))
+        
+        
         # connect signaux boutons
         self.ui.gong_GD_btn.clicked.connect(self.gong_gd)
         self.ui.gong_HB_btn.clicked.connect(self.gong_hb)
         self.ui.gong_blink_btn.clicked.connect(self.gong_blink)
         #self.ui.gong_apply_btn.clicked.connect(self.update_ori_image)
+        
+        # Sauvegarder quand la boîte se termine, quelle que soit la cause
+        self.ui.finished.connect(self.save_settings)
+        
+
         
         # init nb inversions
         self.nb_ns=0
@@ -2869,10 +2921,13 @@ class gong_wnd(QDialog) :
     
     def show(self):
         self.ui.show()
-        
         self.pixmap_gong = self.ui.gong_gongimg_lbl.pixmap()
         
+    def save_settings(self):
+        settings=QSettings("Desnoux Buil", "inti_qt")
+        settings.setValue("GongWindow/geometry", self.ui.saveGeometry())
 
+        
 
 # ----------------------------------------------------------------------------
 # class new window to display profil
@@ -2905,6 +2960,7 @@ class profil_wnd(QMainWindow) :
         
         # init
         self.label = pg.TextItem(text='',color='black', anchor=(1,1))
+        #const=0
         
         # recupere la position
         self.read_settings()
@@ -2999,7 +3055,7 @@ class trame_img(QWidget) :
         # initialisation 
         self.ui.trame_view.ui.roiBtn.hide()
         self.ui.trame_view.ui.menuBtn.hide()
-        const=0
+        #const=0
         
         # gestion des signaux
         self.ui.trame_view.scene.sigMouseMoved.connect(self.on_mouse_move)
@@ -3035,9 +3091,9 @@ class trame_img(QWidget) :
             #plt.plot(pro)
             #plt.show()
             if self.const <0 : 
-                self.coord = int(peak+1+self.const)
+                self.coord = int(peak+self.const)
             else :
-                self.coord = int(peak+1-self.const)
+                self.coord = int(peak-self.const)
             self.auto.emit()
         except :
             pass
@@ -3046,19 +3102,6 @@ class trame_img(QWidget) :
     def compute_profil (self, img_data):  
 
         profil=np.mean(img_data, axis=1)
-        
-        """
-        # droite moindres carrés
-        x = np.arange(len(profil))
-        pro_g = savgol_filter(profil, 101, 3)
-        # Ajustement linéaire : y = a * x + b
-        coeffs = np.polyfit(x, pro_g, deg=2)  # deg=1 → droite
-        a, b,c = coeffs
-        # Valeurs ajustées
-        y_fit = a * x*x + b*x+c
-        pro=profil/y_fit
-        """
-        
         peak=np.argmax(profil)
 
         return profil, peak
@@ -3132,7 +3175,7 @@ class trame_img(QWidget) :
 
 
 class calc_dialog(QDialog):
-    def __init__(self):
+    def __init__(self, foc, ang):
         super().__init__()
         #fichier GUI par Qt Designer
         loader = QUiLoader()
@@ -3152,13 +3195,62 @@ class calc_dialog(QDialog):
         self.ui.calc_ang_btn.clicked.connect(self.calc_valid_angtopix)
         self.ui.calc_pix_btn.clicked.connect(self.calc_valid_pixtoang)
         self.ui.calc_lamb_text.setText(str(self.wav_dict[self.wav_name]))
-        self.ui.buttonGroup.idClicked.connect(self.radio_clicked)
+        self.ui.buttonGroup.idClicked.connect(self.wave_radio_clicked)
+        self.ui.buttonGroup_2.idClicked.connect(self.shg_radio_clicked)
+        self.ui.shg_popup_btn.clicked.connect(self.shg_custom)
+        self.shg_foc_camera_other = foc
+        self.shg_angle_other = ang
+        if foc !='0' and ang!='0' :
+            self.ui.shg_autre.setEnabled(True)
+        else :
+            self.ui.shg_autre.setEnabled(False)
+            
+        # validators
+        # validation des entrées
+        validator_4dec = QtGui.QDoubleValidator()
+        validator_4dec.setDecimals(4)           # Nombre max de décimales autorisées
+        validator_4dec.setNotation(QtGui.QDoubleValidator.StandardNotation)
+        self.ui.calc_lamb_text.setValidator(validator_4dec)
+        self.ui.calc_size_text.setValidator(validator_4dec)
+        self.ui.calc_lamb_text.setValidator(validator_4dec)
+        self.ui.calc_ang_text.setValidator(validator_4dec)
+        self.ui.calc_pix_text.setValidator(validator_4dec)
+        self.ui.calc_bin_text.setValidator(QtGui.QIntValidator(1, 10))
+        
+        # update
+        self.shg_radio_clicked()
+     
         
         
     def show(self) :
         self.ui.show()
         
-    def radio_clicked(self ):
+    def shg_radio_clicked(self ):
+        if self.ui.shg_solex.isChecked() :
+            self.shg_angle = 34
+            self.shg_foc_camera = 125
+        if self.ui.shg_autre.isChecked() :
+            self.shg_foc_camera = self.shg_foc_camera_other
+            self.shg_angle = self.shg_angle_other
+            
+    def shg_custom (self) :
+        pos = QtGui.QCursor.pos()
+        self.theshg = shg_popup(self)
+        self.theshg.valeurs_onclose.connect(self.valeurs_received)
+        self.theshg.ui.move(pos)
+        self.theshg.ui.show()
+    
+    def valeurs_received (self, foc_cam, angle_res) :
+        self.shg_foc_camera_other = foc_cam
+        self.shg_angle_other = angle_res
+        if foc_cam != '0' or angle_res != '0':
+            self.ui.shg_autre.setEnabled(True)
+        else :
+            self.ui.shg_autre.setEnabled(False)
+        
+        # TODO mettre a jour champs dans entete BASS2000
+  
+    def wave_radio_clicked(self ):
         if self.ui.wave_btn_ha.isChecked() :
             self.wav_name='Ha'
         if self.ui.wave_btn_he.isChecked() :
@@ -3173,11 +3265,11 @@ class calc_dialog(QDialog):
     def calc_valid_angtopix (self):
         self.wave=float(self.ui.calc_lamb_text.text())*1e-7
         alpha=np.degrees(np.arcsin((2400*self.wave)/(2*np.cos(np.radians(17)))))+17
-        beta=alpha-34
+        beta=alpha-int(self.shg_angle)
         size_pix_cam=float(self.ui.calc_size_text.text())
         bin_cam=float(self.ui.calc_bin_text.text())
         val_toconvert=float(self.ui.calc_ang_text.text())
-        disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 / 125
+        disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 / int(self.shg_foc_camera)
         val_ang_onepix= disp 
         #print(val_ang_onepix)
         resultat=round(val_toconvert / val_ang_onepix)
@@ -3187,16 +3279,17 @@ class calc_dialog(QDialog):
     def calc_valid_pixtoang (self):           
          self.wave=float(self.ui.calc_lamb_text.text())*1e-7
          alpha=np.degrees(np.arcsin((2400*self.wave)/(2*np.cos(np.radians(17)))))+17
-         beta=alpha-34
+         beta=alpha-int(self.shg_angle)
          size_pix_cam=float(self.ui.calc_size_text.text())
          bin_cam=float(self.ui.calc_bin_text.text())
          val_toconvert=float(self.ui.calc_pix_text.text())
-         disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 / 125
+         disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 /  int(self.shg_foc_camera)
          val_ang_onepix= disp 
          #print(val_ang_onepix)
          resultat= "{:.3f}".format(val_toconvert * val_ang_onepix)
          self.ui.calc_ang_text.setText(str(resultat))
          self.ui.calc_disp_lbl.setText("{:.3f}".format(disp))
+    
 
 class grid_dialog(QDialog):
     def __init__(self, parent=None):
@@ -3376,20 +3469,19 @@ class config_dialog(QDialog):
         self.ui.cfg_diff_chk.setChecked(flags['diff']) 
         self.ui.cfg_sum_chk.setChecked(flags['sum']) 
         self.ui.cfg_x0x1x2_chk.setChecked(flags['x0x1x2']) 
+        self.ui.cfg_dop_chk.setChecked(flags['dop']) 
         
     def get_files_to_save(self) :
         flags={}
-        #flags['disk'] = self.ui.cfg_disk_chk.isChecked()
         flags['raw'] = self.ui.cfg_raw_chk.isChecked()
         flags['color'] = self.ui.cfg_color_chk.isChecked()
         flags['inv'] = self.ui.cfg_inv_chk.isChecked()
         flags['mix'] = self.ui.cfg_mix_chk.isChecked()
-        #flags['recon'] = self.ui.cfg_recon_chk.isChecked()
-        #flags['rawfits'] = self.ui.cfg_rawfits_chk.isChecked()
+
         flags['diff'] = self.ui.cfg_diff_chk.isChecked()
         flags['sum'] = self.ui.cfg_sum_chk.isChecked()
         flags['x0x1x2'] = self.ui.cfg_x0x1x2_chk.isChecked()
-        #flags['BASS200'] = self.ui.cfg_BASS2000_chk.isChecked()
+        flags['dop'] = self.ui.cfg_dop_chk.isChecked()
         return flags
         
     def show(self) :
@@ -3440,6 +3532,70 @@ class crop_popup(QWidget):
         self.ui.H_crop_text.setText('0')
         self.ui.L_crop_text.setText('0')
         self.valeurs_onclose.emit(self.ui.H_crop_text.text(), self.ui.L_crop_text.text())
+        self.ui.close()
+        
+# ----------------------------------------------------------------------------
+# class popup shg_box
+#-----------------------------------------------------------------------------
+class shg_popup(QWidget):
+    #  return focale camera et angle reseau
+    valeurs_onclose = Signal(str, str)
+    
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.Tool | Qt.FramelessWindowHint)
+        self.setWindowModality(Qt.NonModal)
+
+        loader = QUiLoader()
+        ui_file_name=resource_path('shg_box.ui')
+        ui_file = QFile(ui_file_name)
+        
+        if not ui_file.open(QIODevice.ReadOnly):
+            print(f"Cannot open {ui_file_name}: {ui_file.errorString()}")
+            sys.exit(-1)
+        
+        self.ui = loader.load(ui_file)
+        
+        ui_file.close()
+        
+        #self.ui.adjustSize()
+        self.ui.setFocusPolicy(Qt.StrongFocus)
+        self.ui.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)
+        
+        
+        self.ui.ok_btn.clicked.connect(self.ok)
+        self.ui.cancel_btn.clicked.connect(self.cancel)
+        
+        # validatators
+        self.ui.shg_focale_camera_text.setValidator(QtGui.QIntValidator(0, 999999))
+        self.ui.shg_angle_reseau_text.setValidator(QtGui.QIntValidator(0, 999999))
+        
+        # read settings
+        if settings.value("Shg/foc") is not None :
+            self.shg_foc_camera_other=settings.value("Shg/foc")
+        else :
+            self.shg_foc_camera_other='0'
+        
+        if settings.value("Shg/angle") is not None :
+            self.shg_angle_other=settings.value("Shg/angle")
+        else :
+            self.shg_angle_other='0'
+            
+        self.ui.shg_focale_camera_text.setText( self.shg_foc_camera_other)
+        self.ui.shg_angle_reseau_text.setText(self.shg_angle_other)
+
+    def ok(self):
+        # save settings
+        settings.setValue("Shg/foc", self.ui.shg_focale_camera_text.text())
+        settings.setValue("Shg/angle", self.ui.shg_angle_reseau_text.text())
+        
+        self.valeurs_onclose.emit( self.ui.shg_focale_camera_text.text(),self.ui.shg_angle_reseau_text.text())
+        self.ui.close()
+    
+    def cancel(self):
+       
+        self.ui.shg_focale_camera_text.setText('0')
+        self.ui.shg_angle_reseau_text.setText('0')
+        self.valeurs_onclose.emit( self.ui.shg_focale_camera_text.text(),self.ui.shg_angle_reseau_text.text())
         self.ui.close()
 
 # ----------------------------------------------------------------------------

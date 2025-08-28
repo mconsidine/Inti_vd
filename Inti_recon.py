@@ -296,10 +296,12 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     if flag_dopcont :
         if flag_contonly :
             range_dec=[0,shift_cont]
+            logme ('shift cont : '+ str(shift_cont))
         else :
             range_dec=[0,shift_dop1,shift_dop2,shift_cont]
-            print('shift doppler 1 : '+ str(shift_dop1))
-            print('shift doppler 2 : '+ str(shift_dop2))
+            logme ('shift cont : '+ str(shift_cont))
+            logme ('shift doppler 1 : '+ str(shift_dop1))
+            logme ('shift doppler 2 : '+ str(shift_dop2))
     else:
         range_dec=[0]
         """
@@ -313,13 +315,17 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         range_dec1=np.arange(-shift_vol,0)
         range_dec2=np.arange(1,shift_vol+1)
         range_dec=np.concatenate(([0],range_dec1,range_dec2), axis=0)
+        
     
     if flag_pol :
         range_dec=[0,-shift_vol,shift_vol]
         
+       
+        
     if flag_weak :
         range_dec=[0, Shift[1], Shift[2]]
         flag_dopcont=True
+        
         
     kend=len(range_dec)
         
@@ -533,8 +539,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     
     if flag_weak :
         if not flag_corona :
-            deb1=-10
-            deb2=10
+            # was -10,10
+            deb1=-15
+            deb2=5
         # calcul du début d'apparition du spectre, disparition et milieu
         mean_list=np.array(mean_list, dtype='uint16')
         mean_filtre = savgol_filter(mean_list,5,3)
@@ -656,18 +663,33 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         except:
             pass
         
+        nogauss = True
         
-        # THE calcul pour obtenir la position de la fente sur la raie la plus sombre
-        MinX=np.argmin(myimg, axis=1)
-        # gradient des min
-        MinX_gr=np.gradient(MinX)
-        # on reduit à la zone du spectre
-        marge=30
-        MinX=MinX[PosRaieHaut+marge:PosRaieBas-marge]
-        IndY=np.arange(PosRaieHaut+marge, PosRaieBas-marge,1)
-        LineRecal=1
-        #best fit d'un polynome degre 2, les lignes y sont les x et les colonnes x sont les y
-        
+        if nogauss :
+            # THE calcul pour obtenir la position de la fente sur la raie la plus sombre
+            MinX=np.argmin(myimg, axis=1)
+            
+            # on reduit à la zone du spectre
+            marge=30
+            MinX=MinX[PosRaieHaut+marge:PosRaieBas-marge]
+            IndY=np.arange(PosRaieHaut+marge, PosRaieBas-marge,1)
+            LineRecal=1
+            #best fit d'un polynome degre 2, les lignes y sont les x et les colonnes x sont les y
+        else :
+            # test ajustement pour centre raie >> pas  de difference, abandon
+            MinX_img=np.argmin(myimg, axis=1)
+            # on reduit à la zone du spectre
+            MinX=MinX_img[PosRaieHaut+30:PosRaieBas-30]
+            posx=[]
+            debug=False
+            
+            for j in range (PosRaieHaut+30, PosRaieBas-30) :
+                posx.append (get_line_pos_absorption(myimg[j:j+1:][0],MinX_img[j],13,debug)[0])            
+            #ecart=np.array((MinX-posx), dtype='float64')
+            #np.savetxt("c:/codepy/Simu/polymin.txt", ecart,fmt='%.2f',delimiter=',',newline='\n')
+            IndY=np.arange(PosRaieHaut+30, PosRaieBas-30,1)
+            MinX=np.array(posx)
+            LineRecal=1
         
         # ajustement robuste polynome
         if deg == 2 :
@@ -679,6 +701,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             # detection outliers en K passes
             for _ in range(K):
                 p=np.polyfit(IndY[mask],MinX[mask],2)
+                #p=np.polyfit(IndY,MinX,2)
                 fitted_x=np.polyval(p, IndY)
                 residus = MinX-fitted_x
                 std = np.std(residus[mask])
@@ -692,26 +715,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             # test rms -no diff, idem sous ISIS
             # on reste en deg2
             p=np.polyfit(IndY,MinX,3)
-        
-    
-        """
-        # test ajustement pour centre raie >> pas ou peu de difference, abandon
-        MinX_img=np.argmin(myimg, axis=1)
-        # on reduit à la zone du spectre
-        MinX=MinX_img[PosRaieHaut+30:PosRaieBas-30]
-        posx=[]
-        for j in range (PosRaieHaut+30, PosRaieBas-30) :
-            posx.append (get_line_pos_absoption(myimg[j:j+1:][0],MinX_img[j],13))
-        #ecart=np.array((MinX-posx), dtype='float64')
-        IndY=np.arange(PosRaieHaut+30, PosRaieBas-30,1)
-       
-        #np.savetxt("c:/codepy/Simu/polymin.txt", ecart,fmt='%.2f',delimiter=',',newline='\n')
-    
-        LineRecal=1
-        #best fit d'un polynome degre 2, les lignes y sont les x et les colonnes x sont les y
-        p=np.polyfit(IndY, posx,2)
-        """
-    
+          
         
         #calcul des x colonnes pour les y lignes du polynome
         a=p[0]
@@ -725,10 +729,16 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         if Flags["WEAK"]==1 :
             if free_shift !=0 :
                 c=p[2]+c_offset+free_shift
+                if cfg.LG == 1 :
+                    logme("Inclut décalage de : " + str(free_shift))
+                else :
+                    logme("Include shift of : " + str(free_shift))
             else:
                 c=p[2]+c_offset
+            
+            
         
-        if not Flags["WEAK"] and not Flags["POL"]:
+        if not Flags["WEAK"] and not Flags["POL"]: 
             if shift !=0:
                 c= p[2]+c_offset+shift
                 if cfg.LG == 1 :
@@ -756,11 +766,17 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         pos_line_mihauteur = a*posy**2 + b*posy + c
         print('pos_line_mihauteur '+ str(pos_line_mihauteur))
         # On calcul la position précise de la raie à mi hauteur
-        posx = get_line_pos_absoption(line[0], pos_line_mihauteur, 13)
+        posx = get_line_pos_absoption_old(line[0], pos_line_mihauteur, 13)
         print('pos_line_mihauteur ajustee '+ str(posx))
         # On calcule la constante actualisée du polynôme en incluant le decalage du a l'effet zeeman (zeeman wide)
         c = posx - a*posy**2 - b*posy + shift_zeeman
         #c = posx - a*posy**2 - b*posy 
+        
+        if shift_zeeman !=0 :
+            if cfg.LG == 1 :
+                logme("Inclut décalage de : " + str(shift_zeeman))
+            else :
+                logme("Include shift of : " + str(shift_zeeman))
 
               
     fit=[]
@@ -804,7 +820,10 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         plt.scatter(xdec,y,s=0.1, marker='.', edgecolors=('red'))
         plt.show()
         #plt.scatter(min_ajust,IndY[0:-1],s=0.1, marker='.', edgecolors=('green'))
-        plt.scatter(MinX[mask],IndY[mask],s=0.1, marker='.', edgecolors=('blue'))
+        
+        #plt.scatter(MinX[mask],IndY[mask],s=0.1, marker='.', edgecolors=('blue'))
+        plt.scatter(MinX,IndY,s=0.1, marker='.', edgecolors=('blue'))
+        
         plt.scatter(xdec,y,s=0.1, marker='.', edgecolors=('red'))
         #plt.scatter(xi,y,s=0.1, marker='.', edgecolors=('green'))
         plt.show()
@@ -917,9 +936,11 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         x_floor = (np.asarray(fit)[:, 0] + np.ones(ih) * (LineRecal + s)).astype(int) # valeur entière de la position
         t=np.asarray(fit)[:, 1] # valeur decimale de la position
         
+        
         # teste des bornes pour indices left
         x_floor[(x_floor-1)<=0]=1
         x_floor[(x_floor+3)>iw]=iw-3
+       
         
         x_floors.append(x_floor)
     
@@ -1013,8 +1034,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         DiskHDU=fits.PrimaryHDU(Disk[i],header=hdr)
         if i>0 : 
             dp_str= str(range_dec[i])
-            dp_str='_'+str.replace(dp_str,".","_")
-            img_suff.append("_dp"+dp_str)
+            #dp_str='_dp_'+str.replace(dp_str,".","_")
+            dp_str="_dp"+str.replace(dp_str,".","_")
+            img_suff.append(dp_str)
         else:
             img_suff.append('')
             DiskHDU.writeto("Complements"+os.path.sep+basefich+img_suff[i]+'_raw.fits',overwrite='True')
@@ -1283,7 +1305,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         # on cherche la projection de la taille max du soleil en Y
         #print("non uniformity")
         y1,y2=detect_bord(frame, axis=1,offset=0, flag_disk=True) 
-        #x1,x2=detect_bord(frame, axis=0,offset=0)
+        #x1,x2=detect_bord(frame, axis=0,offset=0, flag_disk=True)
         if cfg.LG == 1:
             logme('Limites verticales y1,y2 : '+str(y1)+' '+str(y2))
         else:
@@ -1359,9 +1381,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             #print ('moy profil : ', moy_profil)
             if moy_profil <64000 :
             
-                winterp=301
+                winterp=301 # en test, 101 ne corrige pas de nombreuses lignes en pack 
                 # test pour sunscan
-                winterp=101
+                #winterp=101 #version 6.7
                 if len(ToSpline)<301 :
                     
                     if cfg.LG == 1:
@@ -1376,7 +1398,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                 
                 Smoothed2=savgol_filter(ToSpline,winterp, 3) # window size, polynomial order
             
-    
+                
                 if debug:
                     plt.plot(ToSpline)
                     #plt.plot(Smoothed)
@@ -1930,7 +1952,13 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         if len(range_dec)==1 and shift !=0 :
             nomfich=basefich+img_suff[k]+'_cont.fits'
         else:
-            nomfich =basefich+img_suff[k]+'_recon.fits'
+            
+            if flag_dopcont and k == len(range_dec)-1 and not flag_weak:               
+                # on est avec image de continuum
+                nomfich=basefich+img_suff[k]+'_cont.fits'
+                
+            else :
+                nomfich =basefich+img_suff[k]+'_recon.fits'
         
         DiskHDU=fits.PrimaryHDU(frame,header=hdr)
         DiskHDU.writeto(nomfich, overwrite='True')
