@@ -35,6 +35,7 @@ import stonyhurst as sth
 import threading
 import queue
 import json
+from skimage import exposure
 #from scipy.signal import savgol_filter
 
 import cv2 as cv2
@@ -65,6 +66,7 @@ Version 6.8 - paris 22 aout 2025
 - corrige noms fits avec cont et png cont avec dp
 - ajoute log valeurs de shift
 - corrige trame_profil ecart de 1 dans auto
+- recon avec double passe flat
 
 Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
@@ -132,7 +134,8 @@ Version 6.5c - 16 avril 2025
 
 
 """
-
+# TODO : test histo matching gong
+# TODO : test bilin raie fine couronne
 
 # IDEA : ne plus afficher disk
 # IDEA : flat 2 passes
@@ -156,7 +159,7 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="6.7"
+        self.version ="6.8"
         iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
@@ -2328,8 +2331,9 @@ class main_wnd_UI(QMainWindow) :
             #print(self.mygong.ui.gong_myimg_lbl.size())
             
             try :
+                angle_P=float(self.ui.ori_angP_text.Text())
                 # detection des inversions - uniquement sur disque entier et sur H-alpha
-                inversion = gong_orientation_auto(img_gong, img_disk, diam_disk)
+                inversion = gong_orientation_auto(img_gong, img_disk, diam_disk, angle_P)
                 #print("Inversions : "+inversion)
                 self.mygong.update_inversions(inversion)
                 self.mygong.ui.finished.connect(self.ori_get_inversions)
@@ -3843,25 +3847,32 @@ def img_crop_diam (img, diam, marge) :
     return img_crop
 
 
-def gong_orientation_auto(img1, img2, diam) :
+def gong_orientation_auto(img1, img2, diam,ang_P) :
     # img1 image jpg de gong en 8 bits
     # img2 image _disk de inti en 16 bits
     
     debug = False
     
-    #img1[img1>255] = 255
+    # on seuil image gong
     sb=80
     img1[img1<sb]=0
     img1= (((img1-sb)/(255-sb))*255).astype(np.uint8)
+    
+    # on passe image en 8 bits
     img2=(img2 / 256).astype(np.uint8)
     
     gh,gw=img1.shape
     ih, iw = img2.shape
+    
+    # Ajustement d'histogramme - non utilisé
+    matched = exposure.match_histograms(img2, img1)
         
     if debug :
         plt.imshow(img1, cmap="grey")
         plt.show()
         plt.imshow(img2, cmap="grey")
+        plt.show()
+        plt.imshow(matched, cmap="grey")
         plt.show()
 
     #rayon=(b2-b1)//2

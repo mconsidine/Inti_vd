@@ -469,12 +469,10 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     # test lecture fichier ser en une passe
     # Mappe directement les données en mémoire (pas de lecture trame par trame)
     data_offset=178
-    
     frame_size = Width * Height
     arr = np.memmap(serfile, dtype=dtype, mode="r",
                     offset=data_offset,
                     shape=(FrameCount, frame_size))
-
     # Reshape en tableau (n_frames, height, width)
     frames = arr.reshape((FrameCount, Height, Width))
     
@@ -507,6 +505,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     kept_frame = 0
     kept_frame_opt = 0
     
+    #print('before iter')
+    
     for i, frame in enumerate(frames) :
             
         frame_mean=np.mean(frame)
@@ -524,7 +524,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         kept_frame = kept_frame_opt
           
     #print('Frame kept :', kept_frame, 'over ', FrameIndex)
-
+    #print('after iter')
+    
     # calcul de l'image moyenne
     myimg=mydata/(kept_frame-1)             # Moyenne sur les kept frame
     myimg=np.array(myimg, dtype='uint16')   # Passe en entier 16 bits
@@ -605,6 +606,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     t1=time.time()
     dt=t1-t0
     if debug_time : tim.write('fin lecture : '+"{:.2f}".format(dt)+'\n')
+    
   
     """
     ----------------------------------------------------------------------------
@@ -871,7 +873,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     t2=time.time()
     dt=t2-t1
     if debug_time : tim.write('calcul poly : '+"{:.2f}".format(dt)+'\n')
-    
+
     """
     ----------------------------------------------------------------------------
     ----------------------------------------------------------------------------
@@ -1297,9 +1299,6 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         
         frame=np.copy(img)
-        #plt.imshow(frame)
-        #plt.show()
-        
         
         
         # on cherche la projection de la taille max du soleil en Y
@@ -1317,156 +1316,161 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         if Flags['flat'] :
             
             debug=False
-            # si mauvaise detection des bords en x alors on doit prendre toute l'image
-            if flag_nobords:
-                ydisk=np.median(img,1)
-                offset_y1=0
-                offset_y2=0
-            else:
+            
+            w1= ((y2-y1)//4)
+            if w1%2 == 0 :
+                w1 = w1 + 1 
+            w2= int(0.3*w1)
+            if w2%2 == 0 :
+                w2 = w2 + 1 
+            
+            #print(w1, w2)
+            
+            for winterp in [w2,w1] :
                 
-                sb, seuil_haut = pic_histo (frame)
+                # si mauvaise detection des bords en x alors on doit prendre toute l'image
+                if flag_nobords:
+                    ydisk=np.median(img,1)
+                    offset_y1=0
+                    offset_y2=0
+                else:
+                    sb, seuil_haut = pic_histo (frame)
+                    #print(seuil_haut*0.5)
+               
+                    myseuil=seuil_haut*0.5 # seuillage pour segmentation disque solaire 0.5 - 0.4 pour Ken H
+                    #print("myseuil : ", myseuil)
                 
-                #seuil_haut_p=np.percentile(frame,97) Obsolete avec histogramme disk
-                #print('percentile :', seuil_haut_p)
-                myseuil=seuil_haut*0.5 # seuillage pour segmentation disque solaire 0.5 - 0.4 pour Ken H
-                #print("myseuil : ", myseuil)
                 
-                
-                if cfg.LowDyn : 
-    
-                    #guillaume
-                    myseuil=seuil_haut*0.7 # faible dynamique, seuil pour segmenter le disque solaire was 0.6
-                    #print(seuil_haut, myseuil)
-                
-                # filtre le profil moyen en Y en ne prenant que le disque
-                # pixel est dans disque si intensité supérieure à la moitié du seuil haut pic_histo
-                ydisk=np.empty(ih+1)
-                offset_y1=0
-                offset_y2=0
-                
-                #creation d'un mask
-                chull=np.where(frame < myseuil,False,True)
-    
-                for j in range(0,ih):
-                    temp=np.copy(frame[j,:])
-                    temp=temp[temp>myseuil]
-                    if len(temp)!=0:
-                        ydisk[j]=np.median(temp)
-                    else:
-                        # manage poor disk intensities inside disk
-                        # avoid line artefact
-                        if j>=y1 and j<=y2:
-                            ydisk[j]=myseuil
-                            if abs(j-y1) < abs(j-y2):
-                                offset_y1=offset_y1+1
-                            else:
-                                offset_y2=offset_y2-1
-    
-                        else:
-                            ydisk[j]=myseuil
-                
-    
-                
+                    if cfg.LowDyn : 
         
-            # ne prend que le profil des intensités pour eviter les rebonds de bords
-            
-            # manage flat range application
-            y1=y1+offset_y1
-            y2=y2+offset_y2
-            
-            ToSpline= ydisk[y1:y2]
-            
-            # traitement du cas ou le disque est saturé - cas de la couronne solaire raie verte
-            moy_profil=np.mean(ToSpline)
-            #print ('moy profil : ', moy_profil)
-            if moy_profil <64000 :
-            
-                winterp=301 # en test, 101 ne corrige pas de nombreuses lignes en pack 
-                # test pour sunscan
-                #winterp=101 #version 6.7
-                if len(ToSpline)<301 :
+                        #guillaume
+                        myseuil=seuil_haut*0.7 # faible dynamique, seuil pour segmenter le disque solaire was 0.6
+                        #print(seuil_haut, myseuil)
                     
-                    if cfg.LG == 1:
-                        logme('Hauteur du disque anormalement faible : '+str(y1)+' '+str(y2))
-                    else:
-                        logme('Disk Height abnormally low : '+str(y1)+' '+str(y2))
+                    # filtre le profil moyen en Y en ne prenant que le disque
+                    # pixel est dans disque si intensité supérieure à la moitié du seuil haut pic_histo
+                    ydisk=np.empty(ih+1)
+                    offset_y1=0
+                    offset_y2=0
                     
-                    if len(ToSpline)%2==0 :
-                        winterp=len(ToSpline)-10+1
-                    else:
-                        winterp=len(ToSpline)-10
-                
-                Smoothed2=savgol_filter(ToSpline,winterp, 3) # window size, polynomial order
-            
-                
-                if debug:
-                    plt.plot(ToSpline)
-                    #plt.plot(Smoothed)
-                    plt.plot(Smoothed2)
-                    plt.show()
-         
-                
-                # Divise le profil reel par son filtre ce qui nous donne le flat
-                hf=np.divide(ToSpline,Smoothed2)
-                   
-                # Elimine possible artefact de bord
-                hf=hf[5:-5]
-                
-                #reconstruit le tableau du profil complet an completant le debut et fin
-                a=[1]*(y1+5)
-                b=[1]*(ih-y2+5)
-                hf=np.concatenate((a,hf,b))
-                
-                #Smoothed=np.concatenate((a,Smoothed,b))
-                ToSpline=np.concatenate((a,ToSpline,b))
-                Smoothed2=np.concatenate((a,Smoothed2,b))
-                
-                if debug:
-                    plt.plot(ToSpline)
-                    plt.plot(Smoothed2)
-                    plt.show()
+                    #creation d'un mask
+                    #chull=np.where((frame < (seuil_haut*0.7)) & (frame > seuil_haut) ,False,True)
+                    chull = (frame >= seuil_haut*0.7)
                     
-                    plt.plot(hf)
-                    plt.show()
-         
-                # Génère tableau image de flat 
-                flat=[]
-                for i in range(0,iw):
-                    flat.append(hf)
-                    
-                np_flat=np.asarray(flat)
-                flat = np_flat.T
-                
-                
-                
-                # gere le flat sur le disque uniquement avec le mask chull
-                f_mask=flat*chull
-                #flat = np.ma.masked_equal(f_mask, 1)
-                
-                # Evite les divisions par zeros...
-                flat[f_mask==0]=1
-                
-                
-                if debug:
-                    plt.imshow(flat)
-                    plt.show()
-        
-                # Divise image par le flat
-                BelleImage=np.divide(frame,flat)
-                BelleImage[BelleImage>65535]=65535 # bug saturation
-                frame=np.array(BelleImage, dtype='uint16')
-        
-                if debug:
-                    # sauvegarde de l'image deflattée
-                    #DiskHDU=fits.PrimaryHDU(frame,header=hdu.header)
-                    DiskHDU=fits.PrimaryHDU(frame,header=hdr)
-                    DiskHDU.writeto(basefich+img_suff[k]+'_flat.fits',overwrite='True')
-                
-            else:
-                # pas de correction de flat on reprend l'image
-                logme ("pas de correction de flat, profil saturé")
+                    frameg=np.where(chull, frame, np.nan)
 
+                    
+                    for j in range(0,ih):
+                        temp=np.copy(frameg[j,:])
+                        temp=temp[temp>myseuil]
+                        if len(temp)!=0:
+                            ydisk[j]=np.nanmedian(temp)
+                          
+                        else:
+                            # manage poor disk intensities inside disk
+                            # avoid line artefact
+                            if j>=y1 and j<=y2:
+                                ydisk[j]=myseuil
+                                if abs(j-y1) < abs(j-y2):
+                                    offset_y1=offset_y1+1
+                                else:
+                                    offset_y2=offset_y2-1
+        
+                            else:
+                                ydisk[j]=myseuil
+
+            
+                # ne prend que le profil des intensités pour eviter les rebonds de bords
                 
+                # manage flat range application
+                y1=y1+offset_y1
+                y2=y2+offset_y2
+                
+                ToSpline= ydisk[y1:y2]
+                
+                # traitement du cas ou le disque est saturé - cas de la couronne solaire raie verte
+                moy_profil=np.mean(ToSpline)
+                #print ('moy profil : ', moy_profil)
+                if moy_profil <64000 :
+                
+                    #winterp=801 # en test, 101 ne corrige pas de nombreuses lignes en pack 
+                    # test pour sunscan
+                    #winterp=101 #version 6.7
+                    if len(ToSpline)<winterp :
+                        
+                        if cfg.LG == 1:
+                            logme('Hauteur du disque anormalement faible : '+str(y1)+' '+str(y2))
+                        else:
+                            logme('Disk Height abnormally low : '+str(y1)+' '+str(y2))
+                        
+                        if len(ToSpline)%2==0 :
+                            winterp=len(ToSpline)-10+1
+                        else:
+                            winterp=len(ToSpline)-10
+                    
+                    Smoothed2=savgol_filter(ToSpline,winterp, 3) # window size, polynomial order
+                    # Divise le profil reel par son filtre ce qui nous donne le flat
+                    hf=np.divide(ToSpline,Smoothed2)             
+                                                          
+                    
+                    
+                    # Elimine possible artefact de bord lie au filtrage
+                    mg = (winterp-1)//2
+                    # mg was 5 6.7
+                    hf=hf[mg:-mg]
+                    #reconstruit le tableau du profil complet an completant le debut et fin
+                    a=[1]*(y1+mg)
+                    b=[1]*(ih-y2+mg)
+                    hf=np.concatenate((a,hf,b))
+                    
+                    ToSpline=np.concatenate((a,ToSpline,b))
+                    Smoothed2=np.concatenate((a,Smoothed2,b))
+                    
+                    if debug:
+                        plt.plot(ToSpline)
+                        plt.plot(Smoothed2)
+                        plt.show()
+                        plt.plot(hf)
+                        plt.show()
+                    
+                    
+                                 
+                    # Génère tableau image de flat 
+                    flat=[]
+                    for i in range(0,iw):
+                        flat.append(hf)
+                        
+                    np_flat=np.asarray(flat)
+                    flat = np_flat.T
+                
+                    # gere le flat sur le disque uniquement avec le mask chull
+                    f_mask=flat*chull
+                    
+                    # Evite les divisions par zeros...
+                    flat[f_mask==0]=1                
+                    
+                    if debug:
+                        plt.imshow(flat)
+                        plt.show()
+            
+                    # Divise image par le flat
+                    BelleImage=np.divide(frame,flat)
+                    BelleImage[BelleImage>65535]=65535 # bug saturation
+                    frame=np.array(BelleImage, dtype='uint16')
+                    
+                                  
+                else:
+                    # pas de correction de flat on reprend l'image
+                    logme ("pas de correction de flat, profil saturé")
+                    
+                # repart pour boucle winterp
+                    
+            if debug:
+                # sauvegarde de l'image deflattée
+                #DiskHDU=fits.PrimaryHDU(frame,header=hdu.header)
+                DiskHDU=fits.PrimaryHDU(frame,header=hdr)
+                DiskHDU.writeto(basefich+img_suff[k]+'_flat.fits',overwrite='True')  
+  
         
         # on sauvegarde les bords haut et bas pour les calculs doppler et cont
         if k==0: 
