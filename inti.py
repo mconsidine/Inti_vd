@@ -66,6 +66,8 @@ Version 6.8 - paris 22 aout 2025
 - ajoute log valeurs de shift
 - corrige trame_profil ecart de 1 dans auto
 - recon avec double passe flat
+- recon lecture ram
+- detection inversions 2
 
 Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
@@ -2331,7 +2333,9 @@ class main_wnd_UI(QMainWindow) :
             #print(self.mygong.ui.gong_myimg_lbl.size())
             
             try :
-                angle_P=float(self.ui.ori_angP_text.Text())
+                angle_P=float(self.ui.ori_angP_text.text())
+                if self.ui.section_angP_auto_chk.isChecked() :
+                    angle_P = 0
                 # detection des inversions - uniquement sur disque entier et sur H-alpha
                 inversion = gong_orientation_auto(img_gong, img_disk, diam_disk, angle_P)
                 #print("Inversions : "+inversion)
@@ -2350,6 +2354,7 @@ class main_wnd_UI(QMainWindow) :
     
     def ori_get_inversions (self) :
         inv_list = self.mygong.get_inversions()
+        print(inv_list)
         
         self.ui.ori_inv_NS_chk.setChecked((inv_list[0]+self.ui.ori_inv_NS_chk.isChecked())%2)
         self.ui.ori_inv_EW_chk.setChecked((inv_list[1]+self.ui.ori_inv_EW_chk.isChecked())%2)
@@ -3864,29 +3869,31 @@ def gong_orientation_auto(img1, img2, diam,ang_P) :
     gh,gw=img1.shape
     ih, iw = img2.shape
     
-    # Ajustement d'histogramme - non utilisé
-    matched = exposure.match_histograms(img2, img1)
-        
     if debug :
         plt.imshow(img1, cmap="grey")
         plt.show()
         plt.imshow(img2, cmap="grey")
         plt.show()
-        plt.imshow(matched, cmap="grey")
-        plt.show()
+
+    # genere les 4 images possibles avec rotation angle P
 
     #rayon=(b2-b1)//2
     rayon=diam//2
     cote=int(rayon*(2**0.5))
     mi_cote=(cote//2)
     c= ih//2
+    cote= mi_cote*2
     
     # carré inscrit est c-mi_cote
     img2=img2[c-mi_cote:c+mi_cote,c-mi_cote:c+mi_cote]
     img_g=np.array(img1[c-mi_cote:c+mi_cote,c-mi_cote:c+mi_cote], dtype='uint8')
     
+    # Ajustement d'histogramme - transforme img_gong en fonction de l'histogramme de img2
+    img_g = exposure.match_histograms(img_g, img2)
+    img_g = np.clip(img_g, 0, 255).astype(np.uint8)
     # image Gong a beaucoup de détails
     #img_g=cv2.GaussianBlur(img_g, (11,11), 5)
+    
     
     # test augmentation de contrast avec clahe
     # augmentation contrast sur image gong et disk
@@ -3894,41 +3901,82 @@ def gong_orientation_auto(img1, img2, diam,ang_P) :
     img_g = clahe.apply(img_g)
     img2=clahe.apply(img2)
     
+    
+    
     r_lum=np.mean(img2)/np.mean(img_g)
     #print("r_lum : ",r_lum)
 
     if r_lum<=1 : 
-        img22=np.array(img2, dtype='uint8')    
+        img2=np.array(img2, dtype='uint8')    
         img_g=np.array(img_g*r_lum, dtype='uint8')
     else :
-        img22=np.array(img2/r_lum, dtype='uint8')    
+        img2=np.array(img2/r_lum, dtype='uint8')    
         img_g=np.array(img_g, dtype='uint8')
 
-
+    
+    
     if debug :
         plt.imshow(img_g, cmap="grey")
         plt.show()
-        plt.imshow(img22, cmap="grey")
+        plt.imshow(img2, cmap="grey")
         plt.show()
 
 
     inv=['None','EW','NS','NS-EW']
+    
+   
+    # calcul de la matrice de rotation, angle en degre
+    rotation_mat=cv2.getRotationMatrix2D((cote//2,cote//2),float(-ang_P),1.0)
+                
+    # application de la matrice de rotation
+    #fr_rot=cv2.warpAffine(fr_avant_rot,rotation_mat,(w,h),flags=cv2.INTER_LINEAR)
+    #frame=np.array(fr_rot, dtype='uint16')
+    
+    # calcul score SSD
+    # Transformations possibles
+    transformations = {
+        "None": cv2.warpAffine(img2,rotation_mat,(cote,cote),flags=cv2.INTER_LINEAR),
+        "NS": cv2.warpAffine(np.flipud(img2),rotation_mat,(cote,cote),flags=cv2.INTER_LINEAR),
+        "EW":  cv2.warpAffine(np.fliplr(img2),rotation_mat,(cote,cote),flags=cv2.INTER_LINEAR),
+        "NS-EW": cv2.warpAffine(np.flipud(np.fliplr(img2)),rotation_mat,(cote,cote),flags=cv2.INTER_LINEAR),
+    }
 
+    # Calcul du score pour chaque transformation
+    scores = {}
+    for nom, img in transformations.items():
+        diff = img.astype(np.int16) - img_g.astype(np.int16)
+        scores[nom] = np.sum(diff * diff)  # SSD
+
+    # Trouver la transformation avec le score minimal
+    myinv = min(scores, key=scores.get)
+    #print(scores)
+   
+    
+    if debug :
+        plt.imshow(img_g, cmap="grey")
+        plt.show()
+        plt.imshow(np.flipud(np.fliplr(img2)), cmap="grey")
+        plt.show()
+    
+    """
     # calcul de deux scores
-    score_PSNR =[cv2.PSNR(img_g, img22),cv2.PSNR(img_g, np.fliplr(img22)),
-                cv2.PSNR(img_g, np.flipud(img22)),cv2.PSNR(img_g, np.flipud(np.fliplr(img22)))]
-    score_corr =[cv2.matchTemplate(img_g, img22, cv2.TM_CCORR_NORMED),cv2.matchTemplate(img_g, np.fliplr(img22), cv2.TM_CCORR_NORMED),
-                 cv2.matchTemplate(img_g, np.flipud(img22), cv2.TM_CCORR_NORMED),cv2.matchTemplate(img_g, np.flipud(np.fliplr(img22)), cv2.TM_CCORR_NORMED)]
+    score_PSNR =[cv2.PSNR(img_g, img2),cv2.PSNR(img_g, np.fliplr(img2)),
+                cv2.PSNR(img_g, np.flipud(img2)),cv2.PSNR(img_g, np.flipud(np.fliplr(img2)))]
+    score_corr =[cv2.matchTemplate(img_g, img2, cv2.TM_CCORR_NORMED),cv2.matchTemplate(img_g, np.fliplr(img2), cv2.TM_CCORR_NORMED),
+                 cv2.matchTemplate(img_g, np.flipud(img2), cv2.TM_CCORR_NORMED),cv2.matchTemplate(img_g, np.flipud(np.fliplr(img2)), cv2.TM_CCORR_NORMED)]
     
     icorr=np.argmax(score_corr)
     ipsnr=np.argmax(score_PSNR)
-    #print('Score PSNR : '+ str(score_PSNR[ipsnr]))
-    #print('Score correlation : ' + str(score_corr[icorr]))
+    print(inv)
+    print('Score PSNR : '+ str(score_PSNR))
+    print('Score correlation : ' + str(score_corr))
     
     if icorr != ipsnr :
         print("Low confidence")
+    """
 
-    return inv[icorr]
+    #return inv[icorr]
+    return myinv
 
 
 
