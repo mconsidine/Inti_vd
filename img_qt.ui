@@ -60,7 +60,7 @@ QPushButton { color: white; background-color: rgb(80,0,0) }</string>
       <item>
        <widget class="QPushButton" name="save_btn">
         <property name="text">
-         <string>Enregistrer</string>
+         <string>Enregistrer...</string>
         </property>
        </widget>
       </item>

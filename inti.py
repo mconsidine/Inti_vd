@@ -68,6 +68,7 @@ Version 6.8 - paris 22 aout 2025
 - recon avec double passe flat
 - recon lecture ram
 - detection inversions 2
+- saveas img avec seuils
 
 Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
@@ -2663,7 +2664,8 @@ class img_wnd(QMainWindow) :
         self.ui.inti_view.setImage(img_data)
 
     def save_file(self):
-        print("Enregistre : "+self.file_name)
+        self.file_name,_=QFileDialog.getSaveFileName(self, self.tr("Sauver fichier png"), self.file_name, self.tr("Fichiers png (*.png);;Tous les fichiers (*)"))
+        #print("Enregistre : "+self.file_name)
         myimage=self.ui.inti_view.image
         myimage=np.flipud(np.rot90(myimage))
         if len(myimage.shape)==3 :
