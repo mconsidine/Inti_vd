@@ -6,15 +6,16 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>264</width>
-    <height>230</height>
+    <width>255</width>
+    <height>279</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Calculette</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QDialog {color : white ; background-color : rgb(64,64,64)}
+   <string notr="true">QDialog {color : white ; background-color : rgb(40,40,40)}
+
 QPushButton { color: white; background-color: rgb(60,0,0) }
 QPushButton::default {  color: white; background-color: rgb(80,0,0); border: 1px solid rgb(100,0,0) ;border-radius:6px}
 QLineEdit { color: black; background-color: ivory }
@@ -25,6 +26,72 @@ QLabel::disabled { color : rgb(200,200,200) }
 QRadioButton {color : ivory}</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout_8">
+     <item>
+      <widget class="QRadioButton" name="shg_solex">
+       <property name="text">
+        <string>Sol'Ex</string>
+       </property>
+       <property name="checked">
+        <bool>true</bool>
+       </property>
+       <attribute name="buttonGroup">
+        <string notr="true">buttonGroup_2</string>
+       </attribute>
+      </widget>
+     </item>
+     <item>
+      <widget class="QRadioButton" name="shg_autre">
+       <property name="text">
+        <string>SHG</string>
+       </property>
+       <attribute name="buttonGroup">
+        <string notr="true">buttonGroup_2</string>
+       </attribute>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="shg_popup_btn">
+       <property name="maximumSize">
+        <size>
+         <width>30</width>
+         <height>100</height>
+        </size>
+       </property>
+       <property name="sizeIncrement">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+       <property name="text">
+        <string>...</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="horizontalSpacer_3">
+       <property name="orientation">
+        <enum>Qt::Orientation::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
      <item>
@@ -188,6 +255,12 @@ QRadioButton {color : ivory}</string>
     <layout class="QHBoxLayout" name="horizontalLayout_4">
      <item>
       <widget class="QLabel" name="label_3">
+       <property name="minimumSize">
+        <size>
+         <width>110</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="text">
         <string>Ecart en angstroms :</string>
        </property>
@@ -225,6 +298,12 @@ QRadioButton {color : ivory}</string>
     <layout class="QHBoxLayout" name="horizontalLayout_5">
      <item>
       <widget class="QLabel" name="label_8">
+       <property name="minimumSize">
+        <size>
+         <width>110</width>
+         <height>0</height>
+        </size>
+       </property>
        <property name="text">
         <string>Ecart en pixels : </string>
        </property>
@@ -299,5 +378,6 @@ QRadioButton {color : ivory}</string>
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup"/>
+  <buttongroup name="buttonGroup_2"/>
  </buttongroups>
 </ui>

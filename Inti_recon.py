@@ -465,7 +465,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     #debug
     #t0=float(time.time())
     
-    
+    """
     # test lecture fichier ser en une passe
     # Mappe directement les données en mémoire (pas de lecture trame par trame)
     data_offset=178
@@ -473,9 +473,21 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     arr = np.memmap(serfile, dtype=dtype, mode="r",
                     offset=data_offset,
                     shape=(FrameCount, frame_size))
+    
     # Reshape en tableau (n_frames, height, width)
     frames = arr.reshape((FrameCount, Height, Width))
+    """
     
+    # Charger toutes les trames dans un tableau NumPy en RAM
+    data_offset=178
+    frame_size = Width * Height
+    
+    with open(serfile, "rb") as f:
+        f.seek(data_offset)  # sauter l'entête
+        frames = np.fromfile(f, dtype=dtype, count=FrameCount * frame_size)
+    
+    # Reshape en (n_frames, height, width)
+    frames = frames.reshape((FrameCount, Height, Width))
     
     """
     ---------------------------------------------------------------------------
@@ -494,16 +506,18 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         frames = np.flip(frames.swapaxes(1, 2), axis=1)
         
     
+    """
     #initialize le tableau qui recevra l'image somme de toutes les trames
     mydata_opt=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
     mydata=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
     mytrame=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
-    kept_frame=0
+    
     
     # liste des moyennes
     mean_list=[]
     kept_frame = 0
-    kept_frame_opt = 0
+    #kept_frame_opt = 0
+    good_frames = []
     
     #print('before iter')
     
@@ -514,17 +528,35 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         kept_frame += 1
         
         if frame_mean>3000 : # seuil arbitraire
-            mydata_opt += frame
-            kept_frame_opt += 1
+            #mydata_opt += frame
+            #kept_frame_opt += 1
+            good_frames.append(frame)
 
         mean_list.append(frame_mean) # au cas ou on voudrait utiliser le profil
         
-    if kept_frame_opt > 500 :
-        mydata = np.copy(mydata_opt)
-        kept_frame = kept_frame_opt
+    #if kept_frame_opt > 500 :
+        #mydata = mydata_opt
+        #kept_frame = kept_frame_opt
+    
+    if len(good_frames) > 500:
+        mydata = np.sum(good_frames, axis=0, dtype=np.uint64)
+        kept_frame = len(good_frames)
           
     #print('Frame kept :', kept_frame, 'over ', FrameIndex)
     #print('after iter')
+    """
+    # --- Calcul vectorisé des moyennes par trame ---
+    mean_list = np.mean(frames, axis=(1, 2))
+    
+    # --- Somme de toutes les trames ---
+    mydata = np.sum(frames, axis=0, dtype=np.uint64)
+    kept_frame = frames.shape[0]
+    
+    # --- Sélection des trames "bonnes" ---
+    good_frames = frames[mean_list > 3000]
+    if len(good_frames) > 500:
+        mydata = np.sum(good_frames, axis=0, dtype=np.uint64)
+        kept_frame = len(good_frames)
     
     # calcul de l'image moyenne
     myimg=mydata/(kept_frame-1)             # Moyenne sur les kept frame

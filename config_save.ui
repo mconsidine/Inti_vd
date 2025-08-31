@@ -14,7 +14,12 @@
    <string>Fichiers à enregistrer</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QDialog{color : white ; background-color : rgb(64,64,64)}
+   <string notr="true">QDialog{color : white ; background-color : rgb(40,40,40)}
+QGroupBox {
+        background-color: rgb(40,40,40);
+        color: white;
+       
+    }
 QPushButton { color: white; background-color: rgb(60,0,0) }
 QCheckBox::indicator::unchecked {background-color:ivory; width: 13 px;height: 13 px}
 QCheckBox::indicator::checked { background-color:green; width: 13 px;height: 13 px}
@@ -133,7 +138,7 @@ QToolButton { color: white; background-color: rgb(60,60,60) }</string>
      <string>diff</string>
     </property>
     <property name="checked">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QCheckBox" name="cfg_sum_chk">
@@ -149,7 +154,7 @@ QToolButton { color: white; background-color: rgb(60,60,60) }</string>
      <string>sum</string>
     </property>
     <property name="checked">
-     <bool>true</bool>
+     <bool>false</bool>
     </property>
    </widget>
    <widget class="QCheckBox" name="cfg_x0x1x2_chk">
@@ -165,7 +170,23 @@ QToolButton { color: white; background-color: rgb(60,60,60) }</string>
      <string>x0,x1,x2,</string>
     </property>
     <property name="checked">
-     <bool>true</bool>
+     <bool>false</bool>
+    </property>
+   </widget>
+   <widget class="QCheckBox" name="cfg_dop_chk">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>120</y>
+      <width>78</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>doppler</string>
+    </property>
+    <property name="checked">
+     <bool>false</bool>
     </property>
    </widget>
   </widget>

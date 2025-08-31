@@ -11,6 +11,7 @@ from scipy.interpolate import interp1d
 #import time
 import sys
 from scipy.ndimage import gaussian_filter1d, zoom
+from scipy.optimize import curve_fit
 #from scipy.signal import savgol_filter
 import ellipse as el
 from matplotlib.patches import Ellipse
@@ -910,13 +911,94 @@ def fit_ellipse (myimg,X,disp_log):
 
 
 
+#==============================================================================
+# Inversion gaussienne pour profil absorption exploitée par la fonction scipy curve_fit
+#==============================================================================
+def inverted_gaussian(x, A, mu, sigma, offset):
+    g=offset - A * np.exp(-0.5 * ((x - mu) / sigma) ** 2)
+    g = g + offset
+    return g
+
+
+#====================================================================================
+# GET_LINE_POS_ABSORPTION
+# Mesure de la coordonnée du coeur des raies d'aborption (ajustement d'une gaussienne) 
+# Pos doit être en base 0
+# modif for INTI
+# ===================================================================================
+def get_line_pos_absorption(profil, pos, search_wide,debug):
+     
+    _test = False
+                
+    size = len(profil)
+    x = np.arange(size)
+    y = profil
+    posx=[]
+    
+    #for idx in pos:
+    idx= pos
+    i_min = max(0, idx - int(search_wide / 2))
+    i_max = min(len(x), idx + int(search_wide / 2)  + 1)
+    x_window = np.arange(i_min, i_max)
+    y_window = y[i_min:i_max]
+    
+    # Première passe : on centre la fenetre d'ajustement sur le point d'intensité minimale
+    indice_min = np.argmin(y_window) + x_window[0]
+    
+    i_min = max(0, indice_min - int(search_wide / 2))  # on rafraichit la base centrée sur indice_min
+    i_max = min(len(x), indice_min + int(search_wide / 2)  + 1)
+    
+    x_window = np.arange(i_min, i_max)
+    y_window = y[i_min:i_max]
+    
+    # Seconde passe : ajustement gaussien
+    A0 = np.max(y_window) - np.min(y_window)
+    mu0 = indice_min
+    sigma0 = 2 #was 5
+    offset0 = (y_window[0] + y_window[-1]) / 2 # moyenne du premier et dernier point
+
+    try:
+        popt, _ = curve_fit(inverted_gaussian, x_window, y_window, p0=[A0, mu0, sigma0, offset0]) 
+        posx.append(popt[1])
+        
+        # Paramètres dérivés
+        # A_fit, mu_fit, sigma_fit, offset_fit = popt
+        # fwhm = fwhm_gaussian(sigma_fit)
+        # intensite_max = non_inverted_gaussian(mu_fit, *popt)
+        if debug:
+            #g=inverted_gaussian(x_window, A0, mu0, sigma0, offset0)
+            g2= inverted_gaussian(x_window, popt[0], popt[1], popt[2], popt[3])
+            plt.plot(x_window,g2)
+            plt.plot(x_window,y_window)
+            plt.title(str(idx))
+            plt.xlabel('x')
+            plt.ylabel('y')
+            plt.show()
+            
+    
+    except RuntimeError:
+        print('Error')
+        posx.append(float(idx))
+           
+        if _test == True:
+            plt.plot(x_window,y_window)
+            plt.title(str(idx))
+            plt.xlabel('x')
+            plt.ylabel('y')
+            plt.show()
+
+    posx2 = np.array(posx)
+    return posx2 
+
+
+
 #=========================================================================================
 # GET_LINE_POS_ABSORPTION
 # Retourne la coordonnée du coeur d'une raie d'aborption (ajustement d'une parabole 3 pt)
 # dans le tableau "profil". La position approximative de la raie est "pos".
 # La largeur de la zone de recherche est "seach_wide".
 # =======================================================================================
-def get_line_pos_absoption(profil, pos, search_wide):
+def get_line_pos_absoption_old(profil, pos, search_wide):
             
     w = search_wide
     
@@ -1169,7 +1251,7 @@ def translate_img (img_mean, poly):
     #fit=[]
     ecart=[]
     #LineRecal = 1
-    m_val = int(np.mean(img_mean))
+    #m_val = int(np.mean(img_mean))
     a=poly[0]
     b=poly[1]
     c=poly[2] # constante a y=0

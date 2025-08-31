@@ -13,6 +13,7 @@ a = Analysis(
 	('img_qt.ui','.'),('trame.ui','.'),('calc.ui','.'),
 	('zoom.ui','.'),('grid.ui','.'),('profil_qt.ui','.'),
 	('inti_logo.png','.'),('config_save.ui','.'), ('crop_box.ui','.'),('param.ui','.'),
+	('shg_box.ui','.'),
 	('matplotlib_cache/fontlist-v330.json', 'matplotlib_cache'),
 	('matplotlib_cache/fontlist-v390.json', 'matplotlib_cache')],
     hiddenimports=[],

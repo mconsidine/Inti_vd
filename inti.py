@@ -28,7 +28,6 @@ import math
 import numpy as np
 from PIL import Image
 import Inti_recon as sol
-#import Inti_recon_no_opt as sol
 from Inti_functions import *
 import config as cfg
 import stonyhurst as sth
@@ -134,6 +133,7 @@ Version 6.5c - 16 avril 2025
 
 
 """
+# TODO : verif save et mettre un saveas
 # TODO : test histo matching gong
 # TODO : test bilin raie fine couronne
 
@@ -2667,7 +2667,7 @@ class img_wnd(QMainWindow) :
             sbas,shaut = levels
             if shaut != sbas :
                 myimage = np.clip((myimage.astype(np.float32)-sbas)/(shaut-sbas),0,1)
-                myimage = (myimage*256).astype(np.uint8)
+                myimage = (myimage*255).astype(np.uint8)
             myimage=cv2.cvtColor(myimage, cv2.COLOR_BGR2RGB)
             cv2.imwrite(self.file_name, myimage)
         else :

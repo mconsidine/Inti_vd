@@ -435,7 +435,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
          <string>Profil Spectral</string>
         </property>
        </widget>
-       <widget class="QPushButton" name="inti_calc_doppler_btn">
+       <widget class="QPushButton" name="dop_calc_btn">
         <property name="geometry">
          <rect>
           <x>110</x>
