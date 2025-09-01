@@ -9,7 +9,7 @@ a = Analysis(
     ['inti.py'],
     pathex=[],
     binaries=[],
-    datas=[('inti_qt.ui','.'),('gong.ui','.'),
+    datas=[('inti_qt.ui','.'),('gong.ui','.'), ('lang_EN.qm','.'),
 	('img_qt.ui','.'),('trame.ui','.'),('calc.ui','.'),
 	('zoom.ui','.'),('grid.ui','.'),('profil_qt.ui','.'),
 	('inti_logo.png','.'),('config_save.ui','.'), ('crop_box.ui','.'),('param.ui','.'),
