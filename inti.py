@@ -309,7 +309,7 @@ class main_wnd_UI(QMainWindow) :
         # -------------------------------------------------------------------
         self.ui.free_trame_btn.clicked.connect(self.trame_mean_img)
         self.ui.inti_calc_btn_3.clicked.connect (self.inti_calc)
-        #self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
+        self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
         
         # magnet
         # -------------------------------------------------------------------
@@ -2513,9 +2513,10 @@ class main_wnd_UI(QMainWindow) :
         self.myconfig_dlg.ui.finished.connect(self.get_files_to_save)
 
     def corona_clicked(self) :
-        # si on passe en mode couronne cela n'a de sens que si le mode poly auto est actif
+        # si on passe en mode couronne cela n'a de sens que si le mode poly auto est actif et desactive helium
         if self.ui.free_corona_chk.isChecked() :
             self.ui.free_poly_auto_chk.setChecked(True)
+            self.ui.free_trans_helium_chk.setChecked(False)
             
     
     def get_files_to_save (self) :

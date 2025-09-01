@@ -1278,23 +1278,17 @@ li.checked::marker { content: &quot;\2612&quot;; }
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout_10">
             <item>
-             <widget class="QRadioButton" name="free_trans_helium_chk">
+             <widget class="QCheckBox" name="free_trans_helium_chk">
               <property name="text">
                <string>Correction Hélium transversallium</string>
               </property>
-              <attribute name="buttonGroup">
-               <string notr="true">buttonGroup</string>
-              </attribute>
              </widget>
             </item>
             <item>
-             <widget class="QRadioButton" name="free_corona_chk">
+             <widget class="QCheckBox" name="free_corona_chk">
               <property name="text">
                <string>Couronne</string>
               </property>
-              <attribute name="buttonGroup">
-               <string notr="true">buttonGroup</string>
-              </attribute>
              </widget>
             </item>
             <item>
@@ -2053,7 +2047,7 @@ P positif vers l'est</string>
           <string>Angle P correction</string>
          </property>
          <property name="checked">
-          <bool>true</bool>
+          <bool>false</bool>
          </property>
         </widget>
        </widget>
