@@ -506,6 +506,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         frames = np.flip(frames.swapaxes(1, 2), axis=1)
         
     
+    
     """
     #initialize le tableau qui recevra l'image somme de toutes les trames
     mydata_opt=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
@@ -571,6 +572,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     SaveHdu.writeto(savefich+'.fits',overwrite=True)
     
     if flag_weak :
+        mytrame=np.zeros((hdr['NAXIS2'],hdr['NAXIS1']),dtype='uint64')
         if not flag_corona :
             # was -10,10
             deb1=-15
@@ -1447,7 +1449,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                     
                     
                     # Elimine possible artefact de bord lie au filtrage
-                    mg = (winterp-1)//2
+                    mg = (winterp-1)//4
                     # mg was 5 6.7
                     hf=hf[mg:-mg]
                     #reconstruit le tableau du profil complet an completant le debut et fin

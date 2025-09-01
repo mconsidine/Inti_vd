@@ -15,12 +15,13 @@ import sys
 import os
 import yaml as yaml
 
-import pyqtgraph as pg
-from pyqtgraph import ImageView, PlotWidget
+
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication,QMainWindow,QFileDialog,QMessageBox, QListWidgetItem,QDockWidget,QWidget, QDialog
 from PySide6.QtCore import QFile, QIODevice, Qt, QPoint, QRect, QSettings, QTranslator, Signal, QObject
 from PySide6 import QtGui
+import pyqtgraph as pg
+from pyqtgraph import ImageView, PlotWidget
 
 from astropy.io import fits
 import astropy.time
@@ -46,10 +47,6 @@ from datetime import datetime, UTC
 import requests as rq
 import webbrowser as web
 
-
-#from skimage.segmentation import disk_level_set
-#from skimage.util import invert
-
 import time # only for measure
 
 import requests
@@ -67,8 +64,8 @@ Version 6.8 - paris 22 aout 2025
 - corrige trame_profil ecart de 1 dans auto
 - recon avec double passe flat
 - recon lecture ram
-- detection inversions 2
 - saveas img avec seuils
+
 
 Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
@@ -136,8 +133,8 @@ Version 6.5c - 16 avril 2025
 
 
 """
-# TODO : verif save et mettre un saveas
-# TODO : test histo matching gong
+# BUGFIX : couronne exclusif de helium
+# TODO : traduction
 # TODO : test bilin raie fine couronne
 
 # IDEA : ne plus afficher disk
@@ -163,7 +160,7 @@ class main_wnd_UI(QMainWindow) :
         super(main_wnd_UI, self).__init__()
 
         self.version ="6.8"
-        iv = ImageView # force le load d'ImageView avant QUILoader
+        #iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
         #fichier GUI par Qt Designer
@@ -312,7 +309,7 @@ class main_wnd_UI(QMainWindow) :
         # -------------------------------------------------------------------
         self.ui.free_trame_btn.clicked.connect(self.trame_mean_img)
         self.ui.inti_calc_btn_3.clicked.connect (self.inti_calc)
-        self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
+        #self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
         
         # magnet
         # -------------------------------------------------------------------
@@ -738,11 +735,11 @@ class main_wnd_UI(QMainWindow) :
         Flags= self.Flags
         #data_entete=self.data_entete
         # recupère les données de l'UI !!! shift 1 et 2 changent si free mode
-        self.Shift.append(float(self.ui.inti_shift_text.text()))
-        self.Shift.append(int(self.ui.dop_shift_text.text()))
+        self.Shift.append(float(conv(self.ui.inti_shift_text.text())))
+        self.Shift.append(int((self.ui.dop_shift_text.text())))
         self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
-        self.Shift.append(float(self.ui.free_shift_text.text()))
-        self.Shift.append(float(self.ui.magnet_shift_text.text()))
+        self.Shift.append(float(conv(self.ui.free_shift_text.text())))
+        self.Shift.append(float(conv(self.ui.magnet_shift_text.text())))
         #self.polynome =[0,0,0] # !!! 
         
         app_tab= self.ui.tab_main.currentIndex()
@@ -2000,15 +1997,15 @@ class main_wnd_UI(QMainWindow) :
             self.Shift.append(0)
             self.Shift.append(int(int(self.ui.free_shift1_text.text())-0)) # decalage free bleu ou decalage 1
             self.Shift.append(int(int(self.ui.free_shift2_text.text())-0))
-            self.Shift.append(float(self.ui.free_shift_text.text()))
+            self.Shift.append(float(conv(self.ui.free_shift_text.text())))
             self.Flags["FORCE"]=self.ui.free_tilt_chk.isChecked()
             
             if self.ui.free_tilt_chk.isChecked() != True:
                 self.ratio_fixe=0
                 self.ang_tilt=0
             else :
-                self.ratio_fixe=float(self.ui.free_ratio_text.text())
-                self.ang_tilt=float(self.ui.free_tilt_text.text())
+                self.ratio_fixe=float(conv(self.ui.free_ratio_text.text()))
+                self.ang_tilt=float(conv(self.ui.free_tilt_text.text()))
             
             self.ui.magnet_tilt_chk.setChecked( self.ui.free_tilt_chk.isChecked())
             self.polynome=poly
@@ -2026,8 +2023,8 @@ class main_wnd_UI(QMainWindow) :
                 self.ang_tilt=0
             else :
                 # mode force
-                self.ratio_fixe=float(self.ui.magnet_ratio_text.text())
-                self.ang_tilt=float(self.ui.magnet_tilt_text.text())
+                self.ratio_fixe=float(conv(self.ui.magnet_ratio_text.text()))
+                self.ang_tilt=float(conv(self.ui.magnet_tilt_text.text()))
 
             self.ui.free_tilt_chk.setChecked( self.ui.magnet_tilt_chk.isChecked())
             self.polynome=poly
@@ -2042,19 +2039,19 @@ class main_wnd_UI(QMainWindow) :
         if self.Flags["DOPCONT"] :
             self.Shift.append(0)   
         else :
-            self.Shift.append(float(self.ui.inti_shift_text.text()))
+            self.Shift.append(float(conv(self.ui.inti_shift_text.text())))
         self.Shift.append(int(self.ui.dop_shift_text.text()))
         self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
 
         
         if self.Flags["POL"]:
             self.Shift.append(int(self.ui.magnet_wide_text.text()))
-            self.Shift.append(float(self.ui.magnet_shift_text.text()))
+            self.Shift.append(float(conv(self.ui.magnet_shift_text.text())))
         else:
             self.Shift.append(int(self.ui.seq_range_text.text()))
             self.Shift.append(0.0)
         
-        self.Shift.append(float(self.ui.dop_offset_text.text()))
+        self.Shift.append(float(conv(self.ui.dop_offset_text.text())))
         #print('shift dop ', Shift[5])
         
         self.magnet_racines.append(self.ui.magnet_racineB_text.text())
@@ -2355,7 +2352,7 @@ class main_wnd_UI(QMainWindow) :
     
     def ori_get_inversions (self) :
         inv_list = self.mygong.get_inversions()
-        print(inv_list)
+        #print(inv_list)
         
         self.ui.ori_inv_NS_chk.setChecked((inv_list[0]+self.ui.ori_inv_NS_chk.isChecked())%2)
         self.ui.ori_inv_EW_chk.setChecked((inv_list[1]+self.ui.ori_inv_EW_chk.isChecked())%2)
@@ -2665,25 +2662,25 @@ class img_wnd(QMainWindow) :
 
     def save_file(self):
         self.file_name,_=QFileDialog.getSaveFileName(self, self.tr("Sauver fichier png"), self.file_name, self.tr("Fichiers png (*.png);;Tous les fichiers (*)"))
-        #print("Enregistre : "+self.file_name)
-        myimage=self.ui.inti_view.image
-        myimage=np.flipud(np.rot90(myimage))
-        if len(myimage.shape)==3 :
-            #ajuste les seuils
-            levels = self.ui.inti_view.getLevels()
-            sbas,shaut = levels
-            if shaut != sbas :
-                myimage = np.clip((myimage.astype(np.float32)-sbas)/(shaut-sbas),0,1)
-                myimage = (myimage*255).astype(np.uint8)
-            myimage=cv2.cvtColor(myimage, cv2.COLOR_BGR2RGB)
-            cv2.imwrite(self.file_name, myimage)
-        else :
-            # ajustment des seuils
-            levels = self.ui.inti_view.getLevels()
-            sbas,shaut = levels
-            if shaut != sbas :
-                myimage = np.clip((myimage-sbas)/(shaut-sbas)*65535,0,65535).astype(np.uint16)
-            cv2.imwrite(self.file_name, myimage)
+        if self.file_name :
+            myimage=self.ui.inti_view.image
+            myimage=np.flipud(np.rot90(myimage))
+            if len(myimage.shape)==3 :
+                #ajuste les seuils
+                levels = self.ui.inti_view.getLevels()
+                sbas,shaut = levels
+                if shaut != sbas :
+                    myimage = np.clip((myimage.astype(np.float32)-sbas)/(shaut-sbas),0,1)
+                    myimage = (myimage*255).astype(np.uint8)
+                myimage=cv2.cvtColor(myimage, cv2.COLOR_BGR2RGB)
+                cv2.imwrite(self.file_name, myimage)
+            else :
+                # ajustment des seuils
+                levels = self.ui.inti_view.getLevels()
+                sbas,shaut = levels
+                if shaut != sbas :
+                    myimage = np.clip((myimage-sbas)/(shaut-sbas)*65535,0,65535).astype(np.uint16)
+                cv2.imwrite(self.file_name, myimage)
 
     def on_mouse_move (self, pos):
         if self.ui.inti_view.imageItem.sceneBoundingRect().contains(pos) :
@@ -3744,7 +3741,12 @@ def file_exist(name):
     else:
         return True
 
-
+def conv (mystr):
+    try :
+        a= float(mystr)
+    except:
+        mystr='0'
+    return mystr
 
 def get_data_ser (serfile) :
     try:
@@ -3926,7 +3928,9 @@ def gong_orientation_auto(img1, img2, diam,ang_P) :
 
     inv=['None','EW','NS','NS-EW']
     
-   
+    """
+    # zones noires dues à la rotation perturbe la correlation
+    
     # calcul de la matrice de rotation, angle en degre
     rotation_mat=cv2.getRotationMatrix2D((cote//2,cote//2),float(-ang_P),1.0)
                 
@@ -3942,7 +3946,7 @@ def gong_orientation_auto(img1, img2, diam,ang_P) :
         "EW":  cv2.warpAffine(np.fliplr(img2),rotation_mat,(cote,cote),flags=cv2.INTER_LINEAR),
         "NS-EW": cv2.warpAffine(np.flipud(np.fliplr(img2)),rotation_mat,(cote,cote),flags=cv2.INTER_LINEAR),
     }
-
+    
     # Calcul du score pour chaque transformation
     scores = {}
     for nom, img in transformations.items():
@@ -3952,15 +3956,22 @@ def gong_orientation_auto(img1, img2, diam,ang_P) :
     # Trouver la transformation avec le score minimal
     myinv = min(scores, key=scores.get)
     #print(scores)
+    #print(myinv)
    
+    scores_psnr = {}
+    scores_corr ={}
+    for nom, img in transformations.items():
+        scores_psnr[nom] = cv2.PSNR(img_g, img) 
+        scores_corr[nom] = cv2.matchTemplate(img_g, img, cv2.TM_CCORR_NORMED)
+        
+    myinv_psnr = max(scores_psnr, key=scores_psnr.get)
+    myinv_corr = max(scores_corr, key=scores_corr.get)
     
-    if debug :
-        plt.imshow(img_g, cmap="grey")
-        plt.show()
-        plt.imshow(np.flipud(np.fliplr(img2)), cmap="grey")
-        plt.show()
-    
+    if myinv_psnr != myinv_corr :
+        print("Low confidence : psnr "+myinv_psnr +' corr '+myinv_corr)     
+        
     """
+    
     # calcul de deux scores
     score_PSNR =[cv2.PSNR(img_g, img2),cv2.PSNR(img_g, np.fliplr(img2)),
                 cv2.PSNR(img_g, np.flipud(img2)),cv2.PSNR(img_g, np.flipud(np.fliplr(img2)))]
@@ -3969,18 +3980,20 @@ def gong_orientation_auto(img1, img2, diam,ang_P) :
     
     icorr=np.argmax(score_corr)
     ipsnr=np.argmax(score_PSNR)
-    print(inv)
-    print('Score PSNR : '+ str(score_PSNR))
-    print('Score correlation : ' + str(score_corr))
+    
+    #print('Score PSNR : '+ str(score_PSNR))
+    #print('Score correlation : ' + str(score_corr))
+    #print(inv[ipsnr])
+    myinv_psnr = inv[ipsnr]
+    myinv_corr = inv[icorr]
     
     if icorr != ipsnr :
         print("Low confidence")
-    """
+        print("Low confidence : psnr "+myinv_psnr +' corr '+myinv_corr)
+    
 
     #return inv[icorr]
-    return myinv
-
-
+    return myinv_psnr
 
 
 

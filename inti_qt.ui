@@ -181,7 +181,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
        <enum>QTabWidget::TabShape::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>4</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -1278,17 +1278,23 @@ li.checked::marker { content: &quot;\2612&quot;; }
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout_10">
             <item>
-             <widget class="QCheckBox" name="free_trans_helium_chk">
+             <widget class="QRadioButton" name="free_trans_helium_chk">
               <property name="text">
                <string>Correction Hélium transversallium</string>
               </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup</string>
+              </attribute>
              </widget>
             </item>
             <item>
-             <widget class="QCheckBox" name="free_corona_chk">
+             <widget class="QRadioButton" name="free_corona_chk">
               <property name="text">
                <string>Couronne</string>
               </property>
+              <attribute name="buttonGroup">
+               <string notr="true">buttonGroup</string>
+              </attribute>
              </widget>
             </item>
             <item>
@@ -1478,7 +1484,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <item>
       <widget class="QStackedWidget" name="panel_stack">
        <property name="currentIndex">
-        <number>0</number>
+        <number>2</number>
        </property>
        <widget class="QWidget" name="section">
         <widget class="QCheckBox" name="section_realtime_chk">
@@ -2111,4 +2117,7 @@ P positif vers l'est</string>
  </widget>
  <resources/>
  <connections/>
+ <buttongroups>
+  <buttongroup name="buttonGroup"/>
+ </buttongroups>
 </ui>
