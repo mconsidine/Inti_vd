@@ -75,36 +75,54 @@
     </message>
     <message>
         <location filename="calc.ui" line="265"/>
-        <source>Ecart en angstroms :</source>
-        <translation>Angströms range :</translation>
+        <source>Ecart  :</source>
+        <translation>Shift :</translation>
     </message>
     <message>
         <location filename="calc.ui" line="291"/>
+        <source>Angtröms</source>
+        <translation></translation>
+    </message>
+    <message>
+        <source>Ecart en angstroms :</source>
+        <translation type="vanished">Angströms range :</translation>
+    </message>
+    <message>
+        <location filename="calc.ui" line="304"/>
         <source>&gt; Pixels</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="calc.ui" line="331"/>
+        <location filename="calc.ui" line="321"/>
+        <source>Ecart  : </source>
+        <translation>Shift : </translation>
+    </message>
+    <message>
+        <location filename="calc.ui" line="344"/>
+        <source>Pixels</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="calc.ui" line="357"/>
         <source>&gt; Ang</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="calc.ui" line="308"/>
         <source>Ecart en pixels : </source>
-        <translation>Pixels range : </translation>
+        <translation type="vanished">Pixels range : </translation>
     </message>
     <message>
-        <location filename="calc.ui" line="342"/>
+        <location filename="calc.ui" line="368"/>
         <source>Dispersion : </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="calc.ui" line="349"/>
+        <location filename="calc.ui" line="375"/>
         <source>0</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="calc.ui" line="356"/>
+        <location filename="calc.ui" line="382"/>
         <source>Ang/pix</source>
         <translation></translation>
     </message>
@@ -246,7 +264,7 @@
         <location filename="inti_qt.ui" line="217"/>
         <location filename="inti_qt.ui" line="250"/>
         <location filename="inti_qt.ui" line="283"/>
-        <location filename="inti_qt.ui" line="1697"/>
+        <location filename="inti_qt.ui" line="1704"/>
         <source>...</source>
         <translation></translation>
     </message>
@@ -276,9 +294,9 @@
         <location filename="inti_qt.ui" line="845"/>
         <location filename="inti_qt.ui" line="1116"/>
         <location filename="inti_qt.ui" line="1193"/>
-        <location filename="inti_qt.ui" line="1583"/>
-        <location filename="inti_qt.ui" line="1805"/>
-        <location filename="inti_qt.ui" line="1831"/>
+        <location filename="inti_qt.ui" line="1590"/>
+        <location filename="inti_qt.ui" line="1812"/>
+        <location filename="inti_qt.ui" line="1838"/>
         <source>0</source>
         <translation></translation>
     </message>
@@ -380,20 +398,36 @@
         <translation>Automatic polynome computation</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1411"/>
+        <location filename="inti_qt.ui" line="1314"/>
+        <source>Offset 1 :</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="inti_qt.ui" line="1334"/>
+        <source>Offset 2</source>
+        <translation></translation>
+    </message>
+    <message>
+        <location filename="inti_qt.ui" line="1354"/>
+        <source>relatifs au décalage</source>
+        <translation>Relate to main shift</translation>
+    </message>
+    <message>
+        <location filename="inti_qt.ui" line="1418"/>
         <source>FR</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1533"/>
+        <location filename="inti_qt.ui" line="1540"/>
         <source>Crop</source>
         <translation></translation>
     </message>
     <message>
         <location filename="inti_qt.ui" line="654"/>
         <location filename="inti_qt.ui" line="1029"/>
-        <source>Coefficients pôlynome forme de la fente :</source>
-        <translation>Polynome coefficients slit shape :</translation>
+        <source>Coefficients du pôlynome  :</source>
+        <oldsource>Coefficients pôlynome forme de la fente :</oldsource>
+        <translation>Polynome coefficients  :</translation>
     </message>
     <message>
         <location filename="inti_qt.ui" line="98"/>
@@ -473,28 +507,28 @@ li.checked::marker { content: &quot;\2612&quot;; }
     <message>
         <location filename="inti_qt.ui" line="818"/>
         <location filename="inti_qt.ui" line="1166"/>
-        <location filename="inti_qt.ui" line="1562"/>
+        <location filename="inti_qt.ui" line="1569"/>
         <source>Force Tilt et SY/SX</source>
         <translation>Force Tilt and SY/SX</translation>
     </message>
     <message>
         <location filename="inti_qt.ui" line="864"/>
         <location filename="inti_qt.ui" line="1212"/>
-        <location filename="inti_qt.ui" line="1596"/>
+        <location filename="inti_qt.ui" line="1603"/>
         <source>1</source>
         <translation></translation>
     </message>
     <message>
         <location filename="inti_qt.ui" line="877"/>
         <location filename="inti_qt.ui" line="1225"/>
-        <location filename="inti_qt.ui" line="1609"/>
+        <location filename="inti_qt.ui" line="1616"/>
         <source>Angle de Tilt :</source>
         <translation>Tilt angle :</translation>
     </message>
     <message>
         <location filename="inti_qt.ui" line="890"/>
         <location filename="inti_qt.ui" line="1238"/>
-        <location filename="inti_qt.ui" line="1622"/>
+        <location filename="inti_qt.ui" line="1629"/>
         <source>Ratio SY/SX : </source>
         <translation></translation>
     </message>
@@ -535,8 +569,9 @@ li.checked::marker { content: &quot;\2612&quot;; }
     </message>
     <message>
         <location filename="inti_qt.ui" line="1283"/>
-        <source>Correction Hélium transversallium</source>
-        <translation>Transversallium Helium correction</translation>
+        <source>Correction transversallium Hélium</source>
+        <oldsource>Correction Hélium transversallium</oldsource>
+        <translation>Transversallium correction Helium</translation>
     </message>
     <message>
         <location filename="inti_qt.ui" line="1290"/>
@@ -544,180 +579,178 @@ li.checked::marker { content: &quot;\2612&quot;; }
         <translation>Corona</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1314"/>
         <source>Décalage 1 :</source>
-        <translation>Shift 1 :</translation>
+        <translation type="vanished">Shift 1 :</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1334"/>
         <source>Décalage 2 :</source>
-        <translation>Shift 2 :</translation>
+        <translation type="vanished">Shift 2 :</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1387"/>
+        <location filename="inti_qt.ui" line="1394"/>
         <source>Go !</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1424"/>
+        <location filename="inti_qt.ui" line="1431"/>
         <source>Version : </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1449"/>
+        <location filename="inti_qt.ui" line="1456"/>
         <source>Exit</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1494"/>
+        <location filename="inti_qt.ui" line="1501"/>
         <source>Affichage temps réel</source>
         <translation>Real time display</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1507"/>
+        <location filename="inti_qt.ui" line="1514"/>
         <source>Réduction de bruit</source>
         <translation>Noise reduction</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1520"/>
+        <location filename="inti_qt.ui" line="1527"/>
         <source>Sauve paramètres polynôme</source>
         <oldsource>Sauve paramètres polynomes</oldsource>
         <translation>Save polynome coefficients</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1549"/>
+        <location filename="inti_qt.ui" line="1556"/>
         <source>StonyHurst</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1636"/>
+        <location filename="inti_qt.ui" line="1643"/>
         <source>Format Grille</source>
         <translation>Grid format</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1649"/>
+        <location filename="inti_qt.ui" line="1656"/>
         <source>Fichiers à enregistrer</source>
         <translation>Files to save</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1662"/>
+        <location filename="inti_qt.ui" line="1669"/>
         <source>Fenêtre zoom</source>
         <translation>Zoom window</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1678"/>
+        <location filename="inti_qt.ui" line="1685"/>
         <source>+20% Hor</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1712"/>
+        <location filename="inti_qt.ui" line="1719"/>
         <source>Observateur :</source>
         <translation>Observer :</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1735"/>
+        <location filename="inti_qt.ui" line="1742"/>
         <source>SOLEX_</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1748"/>
+        <location filename="inti_qt.ui" line="1755"/>
         <source>Instrument :</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1771"/>
+        <location filename="inti_qt.ui" line="1778"/>
         <source>Longueur d&apos;onde :</source>
         <translation>Wavelength :</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1790"/>
+        <location filename="inti_qt.ui" line="1797"/>
         <source>Site : </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1818"/>
+        <location filename="inti_qt.ui" line="1825"/>
         <source>Longitude</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1844"/>
+        <location filename="inti_qt.ui" line="1851"/>
         <source>Latitude </source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1857"/>
+        <location filename="inti_qt.ui" line="1864"/>
         <source>E positif</source>
         <translation>E positive</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1870"/>
+        <location filename="inti_qt.ui" line="1877"/>
         <source>N positif</source>
         <translation>N positive</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1884"/>
+        <location filename="inti_qt.ui" line="1891"/>
         <source>Binning :</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1898"/>
+        <location filename="inti_qt.ui" line="1905"/>
         <source>1x1</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1903"/>
+        <location filename="inti_qt.ui" line="1910"/>
         <source>2x2</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1908"/>
+        <location filename="inti_qt.ui" line="1915"/>
         <source>3x3</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1913"/>
+        <location filename="inti_qt.ui" line="1920"/>
         <source>4x4</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1927"/>
+        <location filename="inti_qt.ui" line="1934"/>
         <source>Editer Entête complète</source>
         <translation>Edit full header</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1952"/>
+        <location filename="inti_qt.ui" line="1959"/>
         <source>Gong</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1965"/>
+        <location filename="inti_qt.ui" line="1972"/>
         <source>Inversion E-W</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1978"/>
+        <location filename="inti_qt.ui" line="1985"/>
         <source>Inversion N-S</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="1991"/>
+        <location filename="inti_qt.ui" line="1998"/>
         <source>Angle P</source>
         <translation>P angle</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="2014"/>
+        <location filename="inti_qt.ui" line="2021"/>
         <source>Nord en haut, Est à gauche, 
 P positif vers l&apos;est</source>
         <translation>North is Up, East on Left, 
 P positive toward East</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="2034"/>
+        <location filename="inti_qt.ui" line="2041"/>
         <source>Date :</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="2047"/>
+        <location filename="inti_qt.ui" line="2054"/>
         <source>Angle P correction</source>
         <translation>P angle correction</translation>
     </message>
@@ -726,12 +759,12 @@ P positive toward East</translation>
         <translation type="vanished">P angle auto</translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="2073"/>
+        <location filename="inti_qt.ui" line="2080"/>
         <source>Console</source>
         <translation></translation>
     </message>
     <message>
-        <location filename="inti_qt.ui" line="2089"/>
+        <location filename="inti_qt.ui" line="2096"/>
         <source>Effacer</source>
         <translation>Clear</translation>
     </message>
@@ -849,12 +882,12 @@ P positive toward East</translation>
 <context>
     <name>img_wnd</name>
     <message>
-        <location filename="inti.py" line="2664"/>
+        <location filename="inti.py" line="2670"/>
         <source>Sauver fichier png</source>
         <translation>Save png file</translation>
     </message>
     <message>
-        <location filename="inti.py" line="2664"/>
+        <location filename="inti.py" line="2670"/>
         <source>Fichiers png (*.png);;Tous les fichiers (*)</source>
         <translation>Files png (*.png);;All files (*)</translation>
     </message>
@@ -862,67 +895,67 @@ P positive toward East</translation>
 <context>
     <name>main_wnd_UI</name>
     <message>
-        <location filename="inti.py" line="418"/>
+        <location filename="inti.py" line="422"/>
         <source>Une nouvelle Version est disponible</source>
         <translation>A new version is available</translation>
     </message>
     <message>
-        <location filename="inti.py" line="942"/>
-        <location filename="inti.py" line="989"/>
-        <location filename="inti.py" line="2470"/>
-        <location filename="inti.py" line="2507"/>
+        <location filename="inti.py" line="947"/>
+        <location filename="inti.py" line="994"/>
+        <location filename="inti.py" line="2475"/>
+        <location filename="inti.py" line="2512"/>
         <source>Aucun fichier sélectionné</source>
         <translation>No file selected</translation>
     </message>
     <message>
-        <location filename="inti.py" line="992"/>
+        <location filename="inti.py" line="997"/>
         <source>Fichiers png</source>
         <translation>Files png</translation>
     </message>
     <message>
-        <location filename="inti.py" line="1039"/>
-        <location filename="inti.py" line="1225"/>
-        <location filename="inti.py" line="2411"/>
+        <location filename="inti.py" line="1044"/>
+        <location filename="inti.py" line="1230"/>
+        <location filename="inti.py" line="2416"/>
         <source>Erreur de nom de fichier : </source>
         <translation>File name error : </translation>
     </message>
     <message>
-        <location filename="inti.py" line="1339"/>
+        <location filename="inti.py" line="1344"/>
         <source>Intensité moyenne : </source>
         <translation>Average intensity : </translation>
     </message>
     <message>
-        <location filename="inti.py" line="1498"/>
+        <location filename="inti.py" line="1503"/>
         <source>Erreur image doppler.</source>
         <translation>Error Doppler image.</translation>
     </message>
     <message>
-        <location filename="inti.py" line="1520"/>
+        <location filename="inti.py" line="1525"/>
         <source>Erreur image difference </source>
         <translation>Error image of differences </translation>
     </message>
     <message>
-        <location filename="inti.py" line="1606"/>
+        <location filename="inti.py" line="1611"/>
         <source>Erreur image </source>
         <translation>Image error </translation>
     </message>
     <message>
-        <location filename="inti.py" line="2113"/>
+        <location filename="inti.py" line="2118"/>
         <source>erreur format angle P</source>
         <translation>Error angle P format</translation>
     </message>
     <message>
-        <location filename="inti.py" line="859"/>
+        <location filename="inti.py" line="863"/>
         <source>Erreur à la sauvegarde de inti_ini.yaml : </source>
         <translation>Error saving inti_ini.yaml : </translation>
     </message>
     <message>
-        <location filename="inti.py" line="2466"/>
+        <location filename="inti.py" line="2471"/>
         <source>Fichier non trouvé : </source>
         <translation>File not found : </translation>
     </message>
     <message>
-        <location filename="inti.py" line="2496"/>
+        <location filename="inti.py" line="2501"/>
         <source>Fichier profil : </source>
         <translation>Profile file : </translation>
     </message>

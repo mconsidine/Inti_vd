@@ -37,6 +37,9 @@ import queue
 import json
 from skimage import exposure
 #from scipy.signal import savgol_filter
+import shutil
+import re
+
 
 import cv2 as cv2
 
@@ -55,6 +58,11 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
+Version 6.9 - antibes 5 sept 2025
+- ajout anti-aliasing polynomial
+- recrée un fichier log au nom de l'image enregistrée
+- supprime les accents dans les logs
+
 Version 6.8 - paris 22 aout 2025
 - ajout des params calculette shg autre
 - save fits doppler optionel
@@ -62,10 +70,9 @@ Version 6.8 - paris 22 aout 2025
 - corrige noms fits avec cont et png cont avec dp
 - ajoute log valeurs de shift
 - corrige trame_profil ecart de 1 dans auto
-- recon avec double passe flat
+- recon avec double passe flat et meme seuils mask
 - recon lecture ram
 - saveas img avec seuils
-
 
 Version 6.6g -6.7 - post ohp 25
 - supprime sauvegarde du tab current
@@ -130,20 +137,17 @@ Version 6.5c - 16 avril 2025
 - corrige reference tilt
 - pas d'angle P pour disque partiel et helium transversallium ou magnet
 - pas angle P auto au départ, toujours premier onglet, no more edition polynome
-
-
 """
-# BUGFIX : couronne exclusif de helium
-# TODO : traduction
-# TODO : test bilin raie fine couronne
 
+
+# TODO : traduction
+
+# IDEA : double click dans trame pour changer ref
 # IDEA : ne plus afficher disk
-# IDEA : flat 2 passes
 # IDEA : dock devant en traitement multiple
 # IDEA : date et rotation image gong
 # IDEA : check outliers dans routine poly edge
 # IDEA : option correction rotation doppler
-# IDEA : test no display en batch # gagne 3s 
 # IDEA : faire un updater
 # IDEA : ajoute rotation angle P apres correction helium
 # IDEA : ajouter fiche obs en help pour magnet, helium
@@ -912,6 +916,7 @@ class main_wnd_UI(QMainWindow) :
                         self.img_list[-1].set_img(img_proc)
                         self.img_list[-1].set_title(self.short_name(f))
                         self.img_list[-1].on_ferme.connect(self.img_allclose)
+                        self.img_list[-1].set_file_name(f)
                         #
                         posx=posx+dx
                         posy=posy+dy
@@ -1346,9 +1351,9 @@ class main_wnd_UI(QMainWindow) :
         # disk protus # modif pour Qt après test 585
         #---------------------------------------------------------------------
         frame2=np.copy(frames[0])
-        disk_limit_percent=0.0015 # black disk radius inferior by 3% to disk edge (was 2%) -june25
+        disk_limit_percent=0.0017 # black disk radius inferior by 3.5% to disk edge (was 2%) -june25
         if cercle[0]!=0:
-            x0=cercle[0]-1
+            x0=cercle[0]
             y0=cercle[1]
             #wi=round(cercle[2])
             #he=round(cercle[3])
@@ -1374,7 +1379,7 @@ class main_wnd_UI(QMainWindow) :
         # disk clahe
         #---------------------------------------------------------------------
         #clahe = cv2.createCLAHE(clipLimit=0.8, tileGridSize=(2,2))
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(2,2))
+        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(2,2))
         cl1 = clahe.apply(frames[0])
         #cc = seuil_image_percent (cl1, 99.9999, 25, 1.05)
         cc = seuil_image_percent (cl1, 99.9999, 25, 1)
@@ -2590,6 +2595,7 @@ class main_wnd_UI(QMainWindow) :
         #ext=os.path.split(file_name)[1].split('.')[1]
         basename = file_name[:pos]
         return basename
+    
 
 
 # ----------------------------------------------------------------------------
@@ -2662,8 +2668,8 @@ class img_wnd(QMainWindow) :
         self.ui.inti_view.setImage(img_data)
 
     def save_file(self):
-        self.file_name,_=QFileDialog.getSaveFileName(self, self.tr("Sauver fichier png"), self.file_name, self.tr("Fichiers png (*.png);;Tous les fichiers (*)"))
-        if self.file_name :
+        new_name,_=QFileDialog.getSaveFileName(self, self.tr("Sauver fichier png"), self.file_name, self.tr("Fichiers png (*.png);;Tous les fichiers (*)"))
+        if new_name :
             myimage=self.ui.inti_view.image
             myimage=np.flipud(np.rot90(myimage))
             if len(myimage.shape)==3 :
@@ -2674,15 +2680,21 @@ class img_wnd(QMainWindow) :
                     myimage = np.clip((myimage.astype(np.float32)-sbas)/(shaut-sbas),0,1)
                     myimage = (myimage*255).astype(np.uint8)
                 myimage=cv2.cvtColor(myimage, cv2.COLOR_BGR2RGB)
-                cv2.imwrite(self.file_name, myimage)
+                cv2.imwrite(new_name, myimage)
             else :
                 # ajustment des seuils
                 levels = self.ui.inti_view.getLevels()
                 sbas,shaut = levels
                 if shaut != sbas :
                     myimage = np.clip((myimage-sbas)/(shaut-sbas)*65535,0,65535).astype(np.uint16)
-                cv2.imwrite(self.file_name, myimage)
-
+                cv2.imwrite(new_name, myimage)
+        # on duplique le fichier log avec le nom du nouveau fichier
+        file_log_name = get_baseline(os.path.splitext(self.file_name)[0])+'_log.txt'
+        new_log_name = os.path.splitext(new_name)[0]+'_log.txt'
+        if file_exist(file_log_name) :
+            shutil.copy(file_log_name, new_log_name)
+        
+        
     def on_mouse_move (self, pos):
         if self.ui.inti_view.imageItem.sceneBoundingRect().contains(pos) :
             mouse_point= self.ui.inti_view.view.mapSceneToView(pos)
@@ -3281,7 +3293,7 @@ class calc_dialog(QDialog):
         disp = 1e7 * size_pix_cam* bin_cam*np.cos(np.radians(beta)) / 2400 / int(self.shg_foc_camera)
         val_ang_onepix= disp 
         #print(val_ang_onepix)
-        resultat=round(val_toconvert / val_ang_onepix)
+        resultat=  "{:.3f}".format(val_toconvert / val_ang_onepix)
         self.ui.calc_pix_text.setText(str(resultat))
         self.ui.calc_disp_lbl.setText("{:.3f}".format(disp))
         
@@ -3748,6 +3760,33 @@ def conv (mystr):
     except:
         mystr='0'
     return mystr
+
+def get_baseline(f) :
+    # f est le nom complet du fichier sans l'extension
+    
+    # f_short est le nom sans le chemin
+    #f_short=os.path.split(f)[1]
+    # f_path est le chemin
+    #f_path=os.path.split(f)[0]
+    #f=f_path+os.sep+f_short
+    
+    baseline = f
+    
+    suffixes = ["_disk", "_protus","_clahe", "_dp*_cont","_dp*", "_cont",
+               "_doppler*", "_free", "_raw", "_color*", "_mix", "_inv",
+               "_recon","_dp*recon"]
+    
+    for suffixe in suffixes :
+        # On transforme le motif wildcard en regex : "*" → ".*"
+        motif = re.escape(suffixe).replace("\\*", ".*") + r"$"
+        m = re.match(f"^(.*){motif}", f)
+        if m:
+            baseline =m.group(1)
+            #print("baseline "+str(baseline))
+            return baseline
+            
+    
+    return baseline
 
 def get_data_ser (serfile) :
     try:

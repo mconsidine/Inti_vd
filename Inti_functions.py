@@ -24,66 +24,11 @@ from skimage.util import invert
 #import imutils
 
 
-"""
-version du 13 janvier 2024
-- modif autocrop padding a droite
 
-
-version V4.1.2 du 8 juiller 2023
-- ajout detection outlier avec polynome
-- gestion seuil haut = seuil bas dans seuil_force
-
-version 1 juillet 23 Paris
-- gestion outliers edge chgt zone filtre gaussien de 31 a 21 et zecl=0
-
-version 1 juillet 23 Paris
-- gestion outliers edge
-
-version du 29 janvier 23 Antibes
-- correction cercle dimensions si ratio fixe
-- ajout ligne zero en debut et fin pour meilleure detection bords
-
-version du 24 dec 22
-- fonction de rotation image > non
-
-version du xx 
-- introduit le clamp des zones brillantes aussi dans fit_ellipse
-
-version du 12 mai 2022
-- modif fonction detect_bord avec clip moyenne pour eviter mauvaise detection
-sur zone brillante avec le calcul du gradient
-
-Version 23 avril 2022
-- Christian: ajout fonction de detection du min local d'une raie GET_LINE_POS_ABSORPTION
-
-Version du 19 oct 2021
-- variable debug 
-- utilitaire de seuillage image
-
-Version du 19 aout 2021
-- correction de la formule de matt  pour le calcul de l'heure des fichiers SER 
-
-
-"""
 
 mylog=[]
 
-def catmull_rom_vectorized(img4, t):
-    """
-    Interpolation Catmull-Rom
-    img4 est tableau d'intensité donc chque ligne correspond à un t valeur decimale
-    """
-    p0= img4[0]
-    p1=img4[1]
-    p2=img4[2]
-    p3=img4[3]
-    value = 0.5 * (
-        (2 * p1) +
-        (-p0 + p2) * t +
-        (2*p0 - 5*p1 + 4*p2 - p3) * t**2 +
-        (-p0 + 3*p1 - 3*p2 + p3) * t**3
-        )
-    return value
+
 
 
 def vitesse_radiale_point_b0(x, y, R, P_deg, B0_deg, V_eq=1.865):
@@ -170,6 +115,24 @@ def angle_P_B0 (date_utc):
     Bo = math.degrees(math.asin(math.sin(math.radians(Lambda - K)) * math.sin(math.radians(I))))
 
     return(str(round(P,2)),str(round(Bo,2)), str(L0), str(int(Rot_Carrington)))
+
+
+def catmull_rom_vectorized(img4, t):
+    """
+    Interpolation Catmull-Rom
+    img4 est tableau d'intensité donc chque ligne correspond à un t valeur decimale
+    """
+    p0= img4[0]
+    p1=img4[1]
+    p2=img4[2]
+    p3=img4[3]
+    value = 0.5 * (
+        (2 * p1) +
+        (-p0 + p2) * t +
+        (2*p0 - 5*p1 + 4*p2 - p3) * t**2 +
+        (-p0 + 3*p1 - 3*p2 + p3) * t**3
+        )
+    return value
 
 
 #from matt considine
@@ -1288,8 +1251,8 @@ def bin_to_spectre (img, y1, y2):
     # limit bin to small section of 20 pixels to avoid line blur
     # line is curved to vertical sum would blur the line
     
-    pbin= ((y2-y1)//2) +1
-    array_tobin= img[pbin-20:pbin+21,:]
+    pbin= ((y2-y1)//2) +1 # was 20 in 6.4
+    array_tobin= img[pbin-10:pbin+11,:]
     pro= np.sum(array_tobin,axis=0)
 
     return pro

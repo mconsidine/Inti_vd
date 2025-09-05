@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>824</width>
-    <height>526</height>
+    <height>633</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -181,7 +181,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
        <enum>QTabWidget::TabShape::Rounded</enum>
       </property>
       <property name="currentIndex">
-       <number>4</number>
+       <number>0</number>
       </property>
       <property name="tabsClosable">
        <bool>false</bool>
@@ -651,7 +651,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <item>
              <widget class="QLabel" name="label_28">
               <property name="text">
-               <string>Coefficients pôlynome forme de la fente :</string>
+               <string>Coefficients du pôlynome  :</string>
               </property>
              </widget>
             </item>
@@ -1026,7 +1026,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <item>
              <widget class="QLabel" name="label_38">
               <property name="text">
-               <string>Coefficients pôlynome forme de la fente :</string>
+               <string>Coefficients du pôlynome  :</string>
               </property>
              </widget>
             </item>
@@ -1280,7 +1280,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <item>
              <widget class="QCheckBox" name="free_trans_helium_chk">
               <property name="text">
-               <string>Correction Hélium transversallium</string>
+               <string>Correction transversallium Hélium</string>
               </property>
              </widget>
             </item>
@@ -1307,11 +1307,11 @@ li.checked::marker { content: &quot;\2612&quot;; }
            </layout>
           </item>
           <item>
-           <layout class="QHBoxLayout" name="horizontalLayout_9" stretch="0,0,0,0,1">
+           <layout class="QHBoxLayout" name="horizontalLayout_9" stretch="0,0,0,0,0,1">
             <item>
              <widget class="QLabel" name="label_42">
               <property name="text">
-               <string>Décalage 1 :</string>
+               <string>Offset 1 :</string>
               </property>
              </widget>
             </item>
@@ -1331,7 +1331,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <item>
              <widget class="QLabel" name="label_43">
               <property name="text">
-               <string>Décalage 2 :</string>
+               <string>Offset 2</string>
               </property>
              </widget>
             </item>
@@ -1345,6 +1345,13 @@ li.checked::marker { content: &quot;\2612&quot;; }
               </property>
               <property name="text">
                <string>3</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_6">
+              <property name="text">
+               <string>relatifs au décalage</string>
               </property>
              </widget>
             </item>
@@ -2111,7 +2118,4 @@ P positif vers l'est</string>
  </widget>
  <resources/>
  <connections/>
- <buttongroups>
-  <buttongroup name="buttonGroup"/>
- </buttongroups>
 </ui>
