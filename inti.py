@@ -58,6 +58,11 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
+Version 1.0
+- correction bug angle P annuler si flags weak et trans
+
+Version 6.9+ 
+- correction bug trad 
 Version 6.9 - antibes 5 sept 2025
 - ajout anti-aliasing polynomial
 - recrée un fichier log au nom de l'image enregistrée
@@ -140,8 +145,7 @@ Version 6.5c - 16 avril 2025
 """
 
 
-# TODO : traduction
-
+# IDEA : flat courone hors disque
 # IDEA : double click dans trame pour changer ref
 # IDEA : ne plus afficher disk
 # IDEA : dock devant en traitement multiple
@@ -163,7 +167,7 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="6.8"
+        self.version ="7.0"
         #iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
@@ -1012,7 +1016,7 @@ class main_wnd_UI(QMainWindow) :
                 self.collect_data()
                 
                 # conditions pour ne pas appliquer la rotation d'angle P 
-                if self.Flags["FREE_TRANS"] or self.Flags['POL'] or not(self.ui.section_angP_auto_chk.isChecked()):
+                if  (self.Flags["WEAK"] and self.Flags["FREE_TRANS"]) or self.Flags['POL'] or not(self.ui.section_angP_auto_chk.isChecked()):
                     self.ang_P = 0
                     self.ui.section_angP_auto_chk.setChecked(False)
                 
@@ -1184,7 +1188,7 @@ class main_wnd_UI(QMainWindow) :
         range_dec=result[3]
         self.geom = result[4]
         self.polynome=result[5]
-        print(self.polynome)
+        #print(self.polynome)
             
         print(' ')
         self.img_allclose()
@@ -1351,7 +1355,7 @@ class main_wnd_UI(QMainWindow) :
         # disk protus # modif pour Qt après test 585
         #---------------------------------------------------------------------
         frame2=np.copy(frames[0])
-        disk_limit_percent=0.0017 # black disk radius inferior by 3.5% to disk edge (was 2%) -june25
+        disk_limit_percent=0.0015 # black disk radius inferior by 3.5% to disk edge (was 2%) -june25
         if cercle[0]!=0:
             x0=cercle[0]
             y0=cercle[1]
@@ -2238,7 +2242,7 @@ class main_wnd_UI(QMainWindow) :
         app_tab= self.ui.tab_main.tabText(self.ui.tab_main.currentIndex())
         #print('tab  :'+str(app_tab))
         
-        if app_tab =='Helium-Couronne-Libre' or app_tab == 'Helium-Corona-Free':
+        if app_tab =='Helium-Couronne-Libre' or app_tab == 'Helium-Coronna Free':
             self.Flags['WEAK'] =True
         if app_tab == 'Magnétogramme' or app_tab=='Magnetogram':
             self.Flags['POL'] =True
@@ -2337,7 +2341,7 @@ class main_wnd_UI(QMainWindow) :
             
             try :
                 angle_P=float(self.ui.ori_angP_text.text())
-                if self.ui.section_angP_auto_chk.isChecked() :
+                if not self.ui.section_angP_auto_chk.isChecked() :
                     angle_P = 0
                 # detection des inversions - uniquement sur disque entier et sur H-alpha
                 inversion = gong_orientation_auto(img_gong, img_disk, diam_disk, angle_P)
@@ -2482,7 +2486,7 @@ class main_wnd_UI(QMainWindow) :
         self.Flags["POL"]=False
         self.Flags["WEAK"]=False
         app_tab= self.ui.tab_main.tabText(self.ui.tab_main.currentIndex())
-        if app_tab =='Helium-Couronne-Libre' or app_tab == 'Helium-Corona-Free':
+        if app_tab =='Helium-Couronne-Libre' or app_tab == 'Helium-Coronna Free':
             self.Flags['WEAK'] =True
         if app_tab == 'Magnétogramme' or app_tab == "Magnetogram":
             self.Flags['POL'] =True
@@ -2809,7 +2813,7 @@ class zoom_wnd(QWidget) :
         self.ui.move(200,100)
         
     def update_img (self, image):
-        # TODO : gerer la couleur du doppler
+       
         try :
             ih,iw,nbplan= np.array(image).shape
         except :
@@ -3269,7 +3273,7 @@ class calc_dialog(QDialog):
         else :
             self.ui.shg_autre.setEnabled(False)
         
-        # TODO mettre a jour champs dans entete BASS2000
+       
   
     def wave_radio_clicked(self ):
         if self.ui.wave_btn_ha.isChecked() :

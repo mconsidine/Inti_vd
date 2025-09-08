@@ -593,7 +593,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             fit.append([iw-3,0,y])
         #ecart.append([x-LineRecal,y])
     
-    vals=np.polyval(p, np.arange(ih))
+
         
     
     #if deg == 2 : 
@@ -725,8 +725,6 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
 
     x_floors=[]
-    raie = np.zeros((ih,5), dtype='float64')
-    
     
     for s in range_dec:
       
@@ -736,16 +734,12 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         
         # teste des bornes pour indices left
-        #x_floor[(x_floor-1)<=0]=1
-        #x_floor[(x_floor+3)>iw]=iw-3
-        
-        # borne gauche et droite
-        x_floor[(x_floor - 2) < 0] = 2
-        x_floor[(x_floor + 3) >= iw] = iw - 3
-       
-        
+        # antialiasing +1.5, cattmull +2, partie decimale max +1
+        x_floor[(x_floor-4)<=0]=4
+        x_floor[(x_floor+5)>=iw]=iw-5
+              
         x_floors.append(x_floor)
-    
+     
     
     # Lance la reconstruction du disk a partir des trames
     for FrameIndex, img in enumerate(frames) :
@@ -762,8 +756,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                 
         # Boucle sur les decalages
         i=0
-        
-        
+     
         # --- Précalcul des coefficients pour une fenêtre de 7 points et polyorder=2 ---
         # filtre polynomiale antialiasing sans reduction de la resolution spectrale
         coeffs = np.array([-2, 3, 6, 7, 6, 3, -2], dtype=np.float32) / 21.0
@@ -773,22 +766,27 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             
             I_samples = np.zeros((ih, len(offsets)), dtype=np.float32)
            
-    
+            
             for idx, dx in enumerate(offsets):
                 # Position fractionnaire
                 pos = x_floors[i] + dx +t
                 pos_floor = np.floor(pos).astype(int)
                 frac = pos - pos_floor
-                
-                pt0=np.float64(img[np.arange(ih), pos_floor-1])
-                pt1=np.float64(img[np.arange(ih), pos_floor])
-                pt2=np.float64(img[np.arange(ih), pos_floor+1])
-                pt3=np.float64(img[np.arange(ih), pos_floor+2])
-                img4=[pt0,pt1,pt2,pt3]
-                I_samples[:, idx] = catmull_rom_vectorized(img4, frac)
+                try :
+                    pt0=np.float64(img[np.arange(ih), pos_floor-1])
+                    pt1=np.float64(img[np.arange(ih), pos_floor])
+                    pt2=np.float64(img[np.arange(ih), pos_floor+1])
+                    pt3=np.float64(img[np.arange(ih), pos_floor+2])
+                    img4=[pt0,pt1,pt2,pt3]
+                    I_samples[:, idx] = catmull_rom_vectorized(img4, frac)
+                except :
+                    # a priori erreur catchée par bornes
+                    I_samples[:,idx]= pt1
                 
             
             IntensiteRaie = I_samples @ coeffs
+            # IntensiteRaie = I_samples[:,3] si on enleve l'antialiasing
+            
                         
             # converti en 16 bits
             IntensiteRaie=np.clip(IntensiteRaie,0,65535).astype(np.uint16)
@@ -1113,13 +1111,10 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         Correction de non uniformity - basse freq
         --------------------------------------------------------------
         """
-        
-        Flags['flat'] = True
-        
-        
-        
-        frame=np.copy(img)
-        
+        # en cours d'experimentation... non utilisé
+        Flags['flat'] = False # False = disk
+      
+        frame=np.copy(img)      
         
         # on cherche la projection de la taille max du soleil en Y
         #print("non uniformity")
@@ -1134,6 +1129,29 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         flag_nobords=detect_noXlimbs(frame)
             
         if Flags['flat'] :
+            
+            sb, seuil_haut = pic_histo (frame)
+            myseuil=seuil_haut*0.3
+            chull = (frame >= myseuil)
+            frame_neg=np.where(chull, np.nan, frame)
+            y_horsdisk=np.nanmedian(frame_neg,1)
+            Smoothed_neg=savgol_filter(y_horsdisk,315, 3) 
+            hf_neg=np.divide(y_horsdisk,Smoothed_neg) 
+            flat = np.tile(hf_neg[:, np.newaxis], (1, iw))
+            f_mask=flat*np.logical_not(chull)
+            flat[f_mask==0]=1                
+            
+            debug = True
+            if debug:
+                plt.imshow(flat)
+                plt.show()
+    
+            # Divise image par le flat
+            BelleImage=np.divide(frame,flat)
+            BelleImage[BelleImage>65535]=65535 # bug saturation
+            frame=np.array(BelleImage, dtype='uint16')
+            
+        else :
             
             debug=False
             
@@ -1254,7 +1272,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                         plt.show()
                     
                     
-                                 
+                    # optimisation
+                    flat = np.tile(hf[:, np.newaxis], (1, iw))
+                    """
                     # Génère tableau image de flat 
                     flat=[]
                     for i in range(0,iw):
@@ -1262,7 +1282,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                         
                     np_flat=np.asarray(flat)
                     flat = np_flat.T
-                
+                    """
                     # gere le flat sur le disque uniquement avec le mask chull
                     f_mask=flat*chull
                     
@@ -1281,8 +1301,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                                   
                 else:
                     # pas de correction de flat on reprend l'image
-                    logme ("pas de correction de flat, profil saturé")
-                    
+                    logme ("Pas de correction de flat, profil saturé")
+                    frame=np.copy(img)
+                    break
                 # repart pour boucle winterp
                     
             if debug:
