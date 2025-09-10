@@ -60,6 +60,7 @@ import matplotlib.pyplot as plt #only for debug
 """
 Version 1.0
 - correction bug angle P annuler si flags weak et trans
+- mise en route de check version
 
 Version 6.9+ 
 - correction bug trad 
@@ -325,7 +326,7 @@ class main_wnd_UI(QMainWindow) :
         self.ui.inti_calc_btn_2.clicked.connect (self.inti_calc)
         
         # on teste version du web
-        #self.check_version()
+        self.check_version()
         
         # force antialiasing option de pyqtgraph
         pg.setConfigOptions(antialias=True)
@@ -413,19 +414,19 @@ class main_wnd_UI(QMainWindow) :
     def check_version (self):
         # contact site inti pour nouvelle version
         try :
-            reponse = requests.get('http://valerie.desnoux.free.fr/inti/inti_partner_version.html', timeout=10)
+            reponse = requests.get('http://valerie.desnoux.free.fr/inti/inti_version.html', timeout=10)
             if reponse.status_code == 200 :
                 html_text=reponse.text
                 pos=html_text.find('Version =')
                 v=html_text[pos+10:pos+13]
-                print('version : '+ v)
+                print('INTI web version : '+ v)
                 if v != self.version :
                     box=False
                     if box :
                         msg = QMessageBox()
                         msg.setIcon(QMessageBox.Icon.Information)
                         msg.setText(self.tr("Une nouvelle Version est disponible"))
-                        msg.setWindowTitle("Inti Partner")
+                        msg.setWindowTitle("Inti")
                         msg.exec()
                     # ou alors on met en rouge la version 
                     self.ui.version_label.setStyleSheet('color: red')
