@@ -296,7 +296,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
 
     if bitdepth == 8 :
         factor=256 # was 256 
-        frames = frames * 256
+        frames = (frames.astype(np.uint16) * 256)
     else:
         factor=1
         
