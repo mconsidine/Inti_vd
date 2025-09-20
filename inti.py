@@ -61,6 +61,7 @@ import matplotlib.pyplot as plt #only for debug
 Version 1.0
 - correction bug angle P annuler si flags weak et trans
 - mise en route de check version
+- suppression saut de ligne sur message de creation inti.yaml
 
 Version 6.9+ 
 - correction bug trad 
@@ -533,7 +534,7 @@ class main_wnd_UI(QMainWindow) :
                 my_dictini = yaml.safe_load(f1)
         except:
            
-           print('Création de inti.yaml comme : ', self.my_ini)
+           print('Création de inti.yaml : '+ self.my_ini)
            
         
         self.working_dir=my_dictini['directory']
