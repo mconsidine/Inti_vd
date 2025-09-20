@@ -39,6 +39,7 @@ jobs:
       - name: Copier le PDF et le dossier d'exemples
         run: |
           cp inti_om_FR.pdf dist/inti/
+          cp inti_om_EN.pdf dist/inti/
 
       #- name: Créer le fichier ZIP
       #  run: |
