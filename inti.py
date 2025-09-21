@@ -147,17 +147,8 @@ Version 6.5c - 16 avril 2025
 """
 
 
-# IDEA : flat courone hors disque
-# IDEA : double click dans trame pour changer ref
-# IDEA : ne plus afficher disk
-# IDEA : dock devant en traitement multiple
-# IDEA : date et rotation image gong
-# IDEA : check outliers dans routine poly edge
-# IDEA : option correction rotation doppler
-# IDEA : faire un updater
-# IDEA : ajoute rotation angle P apres correction helium
-# IDEA : ajouter fiche obs en help pour magnet, helium
-# IDEA : stonyhurst sans matplotlib
+# TODO : memoriser les positions des fenetres images
+# TODO : memoriser si orientation ou autre sous section est ouverte
 
 
 original_stdout = sys.stdout
