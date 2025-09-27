@@ -18,7 +18,7 @@ import yaml as yaml
 
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication,QMainWindow,QFileDialog,QMessageBox, QListWidgetItem,QDockWidget,QWidget, QDialog
-from PySide6.QtCore import QFile, QIODevice, Qt, QPoint, QRect, QSettings, QTranslator, Signal, QObject
+from PySide6.QtCore import QFile, QLocale, QIODevice, Qt, QPoint, QRect, QSettings, QTranslator, Signal, QObject
 from PySide6 import QtGui
 import pyqtgraph as pg
 from pyqtgraph import ImageView, PlotWidget
@@ -58,6 +58,9 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
+Version 1.1 Wip
+- replace ',' par '.' pour float (pas sure que cela suffise pour saveini et validators)
+
 Version 1.0
 - correction bug angle P annuler si flags weak et trans
 - mise en route de check version
@@ -146,9 +149,9 @@ Version 6.5c - 16 avril 2025
 - pas angle P auto au départ, toujours premier onglet, no more edition polynome
 """
 
-
-# TODO : memoriser les positions des fenetres images
-# TODO : memoriser si orientation ou autre sous section est ouverte
+# DONE : Label blanc sur fond clair dans entete_dlg
+# DONE : gestion des , ou . en validation
+# TODO : memoriser les positions des fenetres images si double écran
 
 
 original_stdout = sys.stdout
@@ -160,7 +163,7 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="7.0"
+        self.version ="7.0.1"
         #iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
@@ -274,6 +277,10 @@ class main_wnd_UI(QMainWindow) :
         self.shortcut_e.activated.connect(self.inti_go)
         self.ui.inti_go_btn.clicked.connect (self.inti_go)
         
+        validator_2dec = DotOnlyDoubleValidator()
+        validator_2dec.setLocale(QLocale(QLocale.English))
+        validator_2dec.setDecimals(2)           # Nombre max de décimales autorisées
+        
         
         # tab general
         # -------------------------------------------------------------------
@@ -285,14 +292,18 @@ class main_wnd_UI(QMainWindow) :
         self.ui.inti_go_btn.setDefault(True)
         self.ui.inti_go_btn.setAutoDefault(True)
         self.ui.console_clear_btn.clicked.connect(self.console_clear)
+        self.ui.inti_shift_text.setValidator(validator_2dec)
         
         # database
         self.ui.db_wave_text.addItems(self.list_wave[0])
         self.ui.db_entete_btn.clicked.connect(self.db_edit_entete)
+        self.ui.db_lat_text.setValidator(validator_2dec)
+        self.ui.db_long_text.setValidator(validator_2dec)
         
         # orientation
         self.ui.ori_gong_btn.clicked.connect(self.ori_gong)
         self.ui.ori_angP_btn.clicked.connect(self.ori_angP)
+        self.ui.ori_angP_text.setValidator(validator_2dec)
         
         # avancées
         self.ui.ori_grid_format_btn.clicked.connect(self.ori_grid_format)
@@ -305,17 +316,20 @@ class main_wnd_UI(QMainWindow) :
         self.ui.dop_conti_shift_text.setText(str(self.dec_pix_cont))
         self.ui.dop_profil_btn.clicked.connect(self.dop_profil)
         self.ui.dop_calc_btn.clicked.connect(self.inti_calc)
+        self.ui.dop_offset_text.setValidator(validator_2dec)
         
         # free
         # -------------------------------------------------------------------
         self.ui.free_trame_btn.clicked.connect(self.trame_mean_img)
         self.ui.inti_calc_btn_3.clicked.connect (self.inti_calc)
         self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
+        self.ui.free_shift_text.setValidator(validator_2dec)
         
         # magnet
         # -------------------------------------------------------------------
         self.ui.magnet_trame_btn.clicked.connect(self.trame_mean_img)
         self.ui.inti_calc_btn_2.clicked.connect (self.inti_calc)
+        self.ui.magnet_shift_text.setValidator(validator_2dec)
         
         # on teste version du web
         self.check_version()
@@ -531,9 +545,9 @@ class main_wnd_UI(QMainWindow) :
         self.working_dir=my_dictini['directory']
         self.dec_pix_dop=int(my_dictini['dec doppler'])
         self.dec_pix_cont=int(my_dictini['dec cont'])
-        self.saved_tilt=float(my_dictini['ang_tilt'])
-        self.saved_angP=float(my_dictini['angle P'])
-        saved_ratio=float(my_dictini['ratio_sysx'])
+        self.saved_tilt=to_float(str(my_dictini['ang_tilt']))
+        self.saved_angP=to_float(str(my_dictini['angle P']))
+        saved_ratio=to_float(str(my_dictini['ratio_sysx']))
         if saved_ratio == 0 :
             saved_ratio= 1
         poly.append(float(my_dictini['poly_free_a']))
@@ -1987,7 +2001,7 @@ class main_wnd_UI(QMainWindow) :
         
         
         # ratio_fixe, ang_tilt
-        self.ratio_fixe= float(self.ui.inti_ratio_text.text())
+        self.ratio_fixe= to_float(self.ui.inti_ratio_text.text())
         self.ang_tilt = self.ui.inti_tilt_text.text()
         
         # les shifts
@@ -1999,15 +2013,15 @@ class main_wnd_UI(QMainWindow) :
             self.Shift.append(0)
             self.Shift.append(int(int(self.ui.free_shift1_text.text())-0)) # decalage free bleu ou decalage 1
             self.Shift.append(int(int(self.ui.free_shift2_text.text())-0))
-            self.Shift.append(float(conv(self.ui.free_shift_text.text())))
+            self.Shift.append(to_float(conv(self.ui.free_shift_text.text())))
             self.Flags["FORCE"]=self.ui.free_tilt_chk.isChecked()
             
             if self.ui.free_tilt_chk.isChecked() != True:
                 self.ratio_fixe=0
                 self.ang_tilt=0
             else :
-                self.ratio_fixe=float(conv(self.ui.free_ratio_text.text()))
-                self.ang_tilt=float(conv(self.ui.free_tilt_text.text()))
+                self.ratio_fixe=to_float(conv(self.ui.free_ratio_text.text()))
+                self.ang_tilt=to_float(conv(self.ui.free_tilt_text.text()))
             
             self.ui.magnet_tilt_chk.setChecked( self.ui.free_tilt_chk.isChecked())
             self.polynome=poly
@@ -2025,8 +2039,8 @@ class main_wnd_UI(QMainWindow) :
                 self.ang_tilt=0
             else :
                 # mode force
-                self.ratio_fixe=float(conv(self.ui.magnet_ratio_text.text()))
-                self.ang_tilt=float(conv(self.ui.magnet_tilt_text.text()))
+                self.ratio_fixe=to_float(conv(self.ui.magnet_ratio_text.text()))
+                self.ang_tilt=to_float(conv(self.ui.magnet_tilt_text.text()))
 
             self.ui.free_tilt_chk.setChecked( self.ui.magnet_tilt_chk.isChecked())
             self.polynome=poly
@@ -2041,19 +2055,19 @@ class main_wnd_UI(QMainWindow) :
         if self.Flags["DOPCONT"] :
             self.Shift.append(0)   
         else :
-            self.Shift.append(float(conv(self.ui.inti_shift_text.text())))
+            self.Shift.append(float(self.ui.inti_shift_text.text()))
         self.Shift.append(int(self.ui.dop_shift_text.text()))
         self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
 
         
         if self.Flags["POL"]:
             self.Shift.append(int(self.ui.magnet_wide_text.text()))
-            self.Shift.append(float(conv(self.ui.magnet_shift_text.text())))
+            self.Shift.append(float(self.ui.magnet_shift_text.text()))
         else:
             self.Shift.append(int(self.ui.seq_range_text.text()))
             self.Shift.append(0.0)
         
-        self.Shift.append(float(conv(self.ui.dop_offset_text.text())))
+        self.Shift.append(float(self.ui.dop_offset_text.text()))
         #print('shift dop ', Shift[5])
         
         self.magnet_racines.append(self.ui.magnet_racineB_text.text())
@@ -3210,6 +3224,13 @@ class calc_dialog(QDialog):
         self.wav_name='Ha'
         self.wav_dict={'Ha':6562.762,'Ca':3968.469,'He':5877.3, 'Fe':5302.86}
         
+        
+        validator_4dec = DotOnlyDoubleValidator()
+        validator_4dec.setLocale(QLocale(QLocale.English))
+        validator_4dec.setDecimals(4)           # Nombre max de décimales autorisées
+        validator_4dec.setNotation(QtGui.QDoubleValidator.StandardNotation)
+        
+              
         self.ui.calc_ang_btn.clicked.connect(self.calc_valid_angtopix)
         self.ui.calc_pix_btn.clicked.connect(self.calc_valid_pixtoang)
         self.ui.calc_lamb_text.setText(str(self.wav_dict[self.wav_name]))
@@ -3222,15 +3243,9 @@ class calc_dialog(QDialog):
             self.ui.shg_autre.setEnabled(True)
         else :
             self.ui.shg_autre.setEnabled(False)
-            
-        # validators
-        # validation des entrées
-        validator_4dec = QtGui.QDoubleValidator()
-        validator_4dec.setDecimals(4)           # Nombre max de décimales autorisées
-        validator_4dec.setNotation(QtGui.QDoubleValidator.StandardNotation)
+                 
         self.ui.calc_lamb_text.setValidator(validator_4dec)
         self.ui.calc_size_text.setValidator(validator_4dec)
-        self.ui.calc_lamb_text.setValidator(validator_4dec)
         self.ui.calc_ang_text.setValidator(validator_4dec)
         self.ui.calc_pix_text.setValidator(validator_4dec)
         self.ui.calc_bin_text.setValidator(QtGui.QIntValidator(1, 10))
@@ -3365,11 +3380,12 @@ class entete_dialog(QDialog):
         ui_file.close()
 
         # validation des entrées
-        validator_2dec = QtGui.QDoubleValidator()
+        #validator_2dec = QtGui.QDoubleValidator()
+        validator_2dec = DotOnlyDoubleValidator()
+        validator_2dec.setLocale(QLocale(QLocale.English))
         validator_2dec.setDecimals(2)           # Nombre max de décimales autorisées
-        validator_2dec.setNotation(QtGui.QDoubleValidator.StandardNotation)
+        validator_2dec.setNotation(DotOnlyDoubleValidator.StandardNotation)
         validator_2dec.setRange(-180.0, 180.0)  # Bornes min et max
-        
         
         self.ui.db_lat_text.setValidator(validator_2dec)
         self.ui.db_long_text.setValidator(validator_2dec)
@@ -3735,11 +3751,29 @@ class Worker(QObject) :
         result =sol.solex_proc (*args, **kwargs)
         self.result_ready.emit(result)
 
+# ----------------------------------------------------------------------------
+# class validateur de nombre decimaux
+#-----------------------------------------------------------------------------
+class DotOnlyDoubleValidator(QtGui.QDoubleValidator):
+    def validate(self, input_str, pos):
+        # remplace la virgule par un point à la volée
+        if ',' in input_str:
+            input_str = input_str.replace(',', '.')
+        return super().validate(input_str, pos)
+
+    def fixup(self, input_str):
+        # idem pour la correction finale
+        return input_str.replace(',', '.')
+
+
 
 
 #-----------------------------------------------------------------------------
 # Utilitaires
 #-----------------------------------------------------------------------------  
+
+def to_float(s: str) -> float:
+    return float(s.replace(',', '.'))
 
 def file_exist(name):    
    
@@ -3753,7 +3787,7 @@ def file_exist(name):
 
 def conv (mystr):
     try :
-        a= float(mystr)
+        a= to_float(mystr)
     except:
         mystr='0'
     return mystr

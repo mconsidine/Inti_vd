@@ -14,7 +14,8 @@
    <string>BASS2000</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QDialogWindow {color : white ; background-color : rgb(64,64,64)}
+   <string notr="true">QDialog {color : white ; background-color : rgb(40,40,40)}
+
 QPushButton { color: white; background-color: rgb(80,0,0) }
 QPushButton::default {  color: white; background-color: rgb(100,0,0); border: 1px solid rgb(100,0,0) ;border-radius:6px}
 QPushButton::default::pressed {  color: white; background-color: rgb(40,0,0); border: 1px solid rgb(100,0,0) ;border-radius:6px}

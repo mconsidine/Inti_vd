@@ -1485,7 +1485,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
      <item>
       <widget class="QStackedWidget" name="panel_stack">
        <property name="currentIndex">
-        <number>2</number>
+        <number>1</number>
        </property>
        <widget class="QWidget" name="section">
         <widget class="QCheckBox" name="section_realtime_chk">
