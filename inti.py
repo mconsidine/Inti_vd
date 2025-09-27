@@ -424,7 +424,7 @@ class main_wnd_UI(QMainWindow) :
             if reponse.status_code == 200 :
                 html_text=reponse.text
                 pos=html_text.find('Version =')
-                v=html_text[pos+10:pos+13]
+                v=html_text[pos+10:pos+15]
                 print('INTI web version : '+ v)
                 if v != self.version :
                     box=False
