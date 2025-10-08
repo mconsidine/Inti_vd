@@ -758,6 +758,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
 
     x_floors=[]
+    t=[]
     
     for decalage in range_dec:
         s= int(decalage)
@@ -767,7 +768,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         frac = np.asarray(fit)[:, 1] + decimale_decalage # valeur decimale de la position
         # il peut y a voir des valeurs de t qui sont supérieure à 1, il faut les ajouter à x_floor
         depassement = np.trunc(frac).astype(int)
-        t = frac - depassement
+        tt = frac - depassement
         x_floor = x_floor+depassement
         
         # teste des bornes pour indices left
@@ -776,6 +777,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         x_floor[(x_floor+5)>=iw]=iw-5
               
         x_floors.append(x_floor)
+        t.append(tt)
+        
      
     
     # Lance la reconstruction du disk a partir des trames par block
@@ -835,7 +838,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
                     
                     for idx, dx in enumerate(offsets):
                         # Position fractionnaire
-                        pos = x_floors[i] + dx +t
+                        pos = x_floors[i] + dx +t[i]
                         pos_floor = np.floor(pos).astype(int)
                         frac = pos - pos_floor
                         try :
