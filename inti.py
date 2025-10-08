@@ -1111,7 +1111,7 @@ class main_wnd_UI(QMainWindow) :
                     # ------------------------------------------------------------------------------------                     
                     # appel au module d'extraction, reconstruction et correction
                     # ------------------------------------------------------------------------------------     
-                    debug_nothread = True  # mode debug, non thread pour accepter les points d'arret
+                    debug_nothread = False  # mode debug, non thread pour accepter les points d'arret
                     
                     # change le fond du button pour indiquer qu'on est en traitement
                     self.ui.inti_go_btn.setStyleSheet ('background-color: rgb(40,0,0);')
@@ -1344,7 +1344,7 @@ class main_wnd_UI(QMainWindow) :
             if self.Shift[0] ==0 :
                 ImgFile=self.basefich+'_recon.fits'   
             else :
-                v_str=str.replace(self.Shift[0],".","_")
+                v_str=str.replace(str(self.Shift[0]),".","_")
                 ImgFile=self.basefich+'_dp'+v_str+'_cont.fits'
                 suff[1]='_dp'+v_str+'_cont'
         else :

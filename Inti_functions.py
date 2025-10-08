@@ -28,7 +28,8 @@ from skimage.util import invert
 
 mylog=[]
 
-
+def to_float(s: str) -> float:
+    return float(s.replace(',', '.'))
 
 
 def vitesse_radiale_point_b0(x, y, R, P_deg, B0_deg, V_eq=1.865):
