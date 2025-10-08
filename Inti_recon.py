@@ -21,6 +21,7 @@ import config as cfg
 from datetime import datetime
 import time
 
+
 from Inti_functions import *
 
 from serfilesreader_vhd import Serfile
@@ -51,7 +52,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     
     clearlog()
     #print (Shift)
-    shift = Shift[0]
+    shift = Shift[0] # shift géré dans la constante du polynome
+
     shift_offdop=Shift[5]
     shift_dop1 = shift_offdop-Shift[1]
     shift_dop2 = shift_offdop+Shift[1]
@@ -249,74 +251,100 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     # Extract bin de data_entete data_entete[8]
     hdr['BIN1']=int(data_entete[8][0:1])
     hdr['BIN2']=int(data_entete[8][2:3])
-    hdr['CAMPIX']  = float(data_entete [9])*1e-3 #float, pixel size of the CMOS or CCD sensor in mm
+    hdr['CAMPIX']  = to_float(data_entete [9])*1e-3 #float, pixel size of the CMOS or CCD sensor in mm
     hdr['CREATOR'] = data_entete [10] # String, name of the software which created the file and version number
     if data_entete[11]=='' :
         data_entete[11]=420
     if data_entete[12]=='':
         data_entete[12]=72
-    hdr['FEQUIV']  = float(data_entete [11]) #float, equivalent focal length of the telescope in mm              
-    hdr['APERTURE']= float(data_entete [12]) # float, aperture of the telescope in mm                 
+    hdr['FEQUIV']  = to_float(data_entete [11]) #float, equivalent focal length of the telescope in mm              
+    hdr['APERTURE']= to_float(data_entete [12]) # float, aperture of the telescope in mm                 
     hdr['DIAPH'] = int(data_entete[21]) # integer, diametre après diaphragme
     hdr['DN'] = data_entete[22] # string, type de filtre genre ND8, Helioscope Lacerta
     hdr['SPECTRO'] = data_entete [13] #String, Spectrograph identification (SOLEX, SHG700...)
-    hdr['FCOL']    = float(data_entete [14]) #float, focal length of the collimator in mm (80 SOLEX, 72 SHG700)
-    hdr['FCAM']    = float(data_entete [15]) #float, focal length of the camera lens in mm (125 SOLEX, 72 SHG700)
+    hdr['FCOL']    = to_float(data_entete [14]) #float, focal length of the collimator in mm (80 SOLEX, 72 SHG700)
+    hdr['FCAM']    = to_float(data_entete [15]) #float, focal length of the camera lens in mm (125 SOLEX, 72 SHG700)
     hdr['GROOVES'] = int(data_entete [16]) #integer, number of grooves/mm of the grating
     hdr['ORDER']   = int(data_entete [17]) #integer, interference order on the grating
-    hdr['SHGANGLE']   = float(data_entete [18]) #float, angle between the central incident and diffracted rays in degrees
-    hdr['SLWIDTH'] = round(float(data_entete [20])/1000, 3) #float, slit width in mm (0.010 or 0.007)
-    hdr['SLHEIGHT'] = float(data_entete [19]) #float, slit height in mm (4.5 or 6)
-    hdr['WAVEBAND'] = float(0.0) #float, peut-etre obtenu avec param d'avant par calcul
+    hdr['SHGANGLE']   = to_float(data_entete [18]) #float, angle between the central incident and diffracted rays in degrees
+    hdr['SLWIDTH'] = round(to_float(data_entete [20])/1000, 3) #float, slit width in mm (0.010 or 0.007)
+    hdr['SLHEIGHT'] = to_float(data_entete [19]) #float, slit height in mm (4.5 or 6)
+    hdr['WAVEBAND'] = to_float(str(0.0)) #float, peut-etre obtenu avec param d'avant par calcul
     
-        
-    # Charger toutes les trames dans un tableau NumPy en RAM
-    data_offset=178
+
+    """
+    ---------------------------------------------------------------------------
+    lecture fichier ser et accumulation pour moyenne
+    ---------------------------------------------------------------------------
+    """
+    data_offset = 178
     frame_size = Width * Height
+    block_size = 1000  # frames par bloc
+
+
     
-    #nbframe1 = FrameCount//2 -100
-    #nbframe= 200 
-    #data_offset = nbframe1*frame_size
-    #count = nbframe*frame_size
-    count=FrameCount * frame_size
+    # Accumulateurs
+    sum_all  = np.zeros((Height, Width), dtype=np.uint64)
+    sum_good = np.zeros((Height, Width), dtype=np.uint64)
+    
+    count_all = 0
+    count_good = 0
+    
+    mean_list=[]
     
     with open(serfile, "rb") as f:
-        f.seek(data_offset)  # sauter l'entête
-        frames = np.fromfile(f, dtype=dtype, count = count)
+        f.seek(data_offset)
+        frame_index = 0
+        
+        while frame_index < FrameCount:
+            n_to_read = min(block_size, FrameCount - frame_index)
+            count = n_to_read * frame_size
+            
+            block = np.fromfile(f, dtype=dtype, count=count).reshape((n_to_read, Height, Width))
+            
+            if bitdepth == 8:
+                block = block.astype(np.uint16) * 256
+            else:
+                block = block.astype(np.uint16)
+            
+            
+            
+            # moyennes des frames du bloc
+            means = np.mean(block, axis=(1, 2))
+            # On ajoute au tableau global
+            mean_list.extend(means)  
+            
+            
+            # accumulateur total
+            sum_all += np.sum(block, axis=0, dtype=np.uint64)
+            count_all += n_to_read
+            
+            # accumulateur bonnes trames
+            good_mask = means > 3000
+            if np.any(good_mask):
+                sum_good += np.sum(block[good_mask], axis=0, dtype=np.uint64)
+                count_good += np.count_nonzero(good_mask)
+            
+            frame_index += n_to_read
     
-    # Reshape en (n_frames, height, width)
-    frames = frames.reshape((FrameCount, Height, Width))
-    #frames = frames.reshape((nbframe, Height, Width))
-    
-    """
-    ---------------------------------------------------------------------------
-    Calcul image moyenne de toutes les trames
-    ---------------------------------------------------------------------------
-    """
-
-    if bitdepth == 8 :
-        factor=256 # was 256 
-        frames = (frames.astype(np.uint16) * 256)
+    # Décision finale
+    if count_good > 500:
+        mydata = sum_good
+        kept_frame = count_good
     else:
-        factor=1
+        mydata = sum_all
+        kept_frame = count_all
         
-    if flag_rotate :
+    if flag_rotate:
+        # Rotation de 90° dans le sens horaire
+        mydata = np.flip(mydata.swapaxes(0,1), axis=0)
 
-        frames = np.flip(frames.swapaxes(1, 2), axis=1)
-        
-    
-    # --- Calcul vectorisé des moyennes par trame ---
-    mean_list = np.mean(frames, axis=(1, 2))
-    
-    # --- Somme de toutes les trames ---
-    mydata = np.sum(frames, axis=0, dtype=np.uint64)
-    kept_frame = frames.shape[0]
-    
-    # --- Sélection des trames "bonnes" ---
-    good_frames = frames[mean_list > 3000]
-    if len(good_frames) > 500:
-        mydata = np.sum(good_frames, axis=0, dtype=np.uint64)
-        kept_frame = len(good_frames)
+
+    """
+    ---------------------------------------------------------------------------
+    Calcul image moyenne
+    ---------------------------------------------------------------------------
+    """
     
     # calcul de l'image moyenne
     myimg=mydata/(kept_frame-1)             # Moyenne sur les kept frame
@@ -348,7 +376,22 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         if flag_corona :
             print("Trame sel : "+ str(deb1)+' '+str(deb2))
         
-        for i in range (tram1+deb1, tram1+deb2) :          
+        with open(serfile, "rb") as f:
+            frame1 = tram1+deb1
+            frame2 = tram1+deb2
+            n_to_read = frame2 - frame1
+            count = n_to_read * frame_size
+
+            # déplacement du curseur en tenant compte de l'offset
+            f.seek(data_offset + frame1 * frame_size * np.dtype(dtype).itemsize)
+            frames = np.fromfile(f, dtype=dtype, count=count).reshape((n_to_read, Height, Width))
+            
+            # rotation éventuelle
+            if flag_rotate:
+                frames = np.flip(frames.swapaxes(1, 2), axis=1)
+                
+            
+        for i in range (0, n_to_read) :          
             mytrame += frames[i]
         
         nbtrame = deb2- (deb1)
@@ -676,26 +719,14 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     ----------------------------------------------------------------------------
     """
     FrameIndex=0            # Index de trame
-    
-    """
-    
 
-    if Width>Height:
-        flag_rotate=True
-        ih=Width
-        iw=Height
-    else:
-        flag_rotate=False
-        iw=Width
-        ih=Height
-        
-    
-    """
     FrameMax=FrameCount
     
-    ih , iw  = frames[0].shape
+    
     Disk=[]
     
+    # TODO : verif reduc noise si on applique un shift
+   
     # reduction de bruit - moyenne de 3 colonnes
     if len(range_dec)==1 and Flags["NOISEREDUC"] == 1 :
         range_dec_ref=range_dec
@@ -710,6 +741,8 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     
     for k in range_dec:
         Disk.append(np.zeros((ih,FrameMax), dtype='uint16'))
+        
+    
     
     if flag_display and image_queue == None :
    
@@ -726,12 +759,16 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
 
     x_floors=[]
     
-    for s in range_dec:
-      
+    for decalage in range_dec:
+        s= int(decalage)
+        decimale_decalage = decalage-s
         # indice de la partie entiere de la position avec eventuellement un decalage s
         x_floor = (np.asarray(fit)[:, 0] + np.ones(ih) * (LineRecal + s)).astype(int) # valeur entière de la position
-        t=np.asarray(fit)[:, 1] # valeur decimale de la position
-        
+        frac = np.asarray(fit)[:, 1] + decimale_decalage # valeur decimale de la position
+        # il peut y a voir des valeurs de t qui sont supérieure à 1, il faut les ajouter à x_floor
+        depassement = np.trunc(frac).astype(int)
+        t = frac - depassement
+        x_floor = x_floor+depassement
         
         # teste des bornes pour indices left
         # antialiasing +1.5, cattmull +2, partie decimale max +1
@@ -741,76 +778,107 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         x_floors.append(x_floor)
      
     
-    # Lance la reconstruction du disk a partir des trames
-    for FrameIndex, img in enumerate(frames) :
-        
-        # si flag_display vrai montre trame en temps reel       
-        if flag_display :
-            if image_queue == None :
-                cv2.imshow('image', img)
-                if cv2.waitKey(1)==27:
-                    cv2.destroyAllWindows()
-                    sys.exit()
-            else :
-                image_queue.put(("image", img, FrameCount))
-                
-        # Boucle sur les decalages
-        i=0
-     
-        # --- Précalcul des coefficients pour une fenêtre de 7 points et polyorder=2 ---
-        # filtre polynomiale antialiasing sans reduction de la resolution spectrale
-        coeffs = np.array([-2, 3, 6, 7, 6, 3, -2], dtype=np.float32) / 21.0
-        offsets = np.array([-1.5,-1,-0.5,0,0.5, 1,1.5])
-            
-        for i in range(0,len(range_dec)): 
-            
-            I_samples = np.zeros((ih, len(offsets)), dtype=np.float32)
-           
-            
-            for idx, dx in enumerate(offsets):
-                # Position fractionnaire
-                pos = x_floors[i] + dx +t
-                pos_floor = np.floor(pos).astype(int)
-                frac = pos - pos_floor
-                try :
-                    pt0=np.float64(img[np.arange(ih), pos_floor-1])
-                    pt1=np.float64(img[np.arange(ih), pos_floor])
-                    pt2=np.float64(img[np.arange(ih), pos_floor+1])
-                    pt3=np.float64(img[np.arange(ih), pos_floor+2])
-                    img4=[pt0,pt1,pt2,pt3]
-                    I_samples[:, idx] = catmull_rom_vectorized(img4, frac)
-                except :
-                    # a priori erreur catchée par bornes
-                    I_samples[:,idx]= pt1
-                
-            
-            IntensiteRaie = I_samples @ coeffs
-            # IntensiteRaie = I_samples[:,3] si on enleve l'antialiasing
-            
-                        
-            # converti en 16 bits
-            IntensiteRaie=np.clip(IntensiteRaie,0,65535).astype(np.uint16)
-
-            # Ajoute au tableau disk 
-            Disk[i][:,FrameIndex]=IntensiteRaie
-  
-        
-        # Display reconstruction of the disk refreshed every 30 lines
-        refresh_lines=int(20)
-        if flag_display and FrameIndex %refresh_lines == 0 :
-            disk_display=[]
-            disk_display = np.copy(Disk[0]).astype(np.uint32)*2
-            disk_display=np.clip(disk_display,0,65535).astype(np.uint16)
-            if image_queue == None :
-                cv2.imshow ('disk', disk_display)
-                if cv2.waitKey(1) == 27:             # exit if Escape is hit
-                        cv2.destroyAllWindows()
-                        sys.exit()
-            else : 
-                image_queue.put(("disk",disk_display, FrameCount))
+    # Lance la reconstruction du disk a partir des trames par block
+    data_offset = 178
+    frame_size = Width * Height
+    block_size = 1000  # nombre de trames lues en une fois
     
-        #FrameIndex=FrameIndex+1
-   
+    with open(serfile, "rb") as f:
+        f.seek(data_offset)
+        
+        frame_index = 0
+        while frame_index < FrameCount:
+            # combien de frames à lire dans ce bloc
+            n_to_read = min(block_size, FrameCount - frame_index)
+            count = n_to_read * frame_size
+    
+            # lecture du bloc brut
+            block = np.fromfile(f, dtype=dtype, count=count).reshape((n_to_read, Height, Width))
+    
+            # mise à l’échelle selon bitdepth
+            if bitdepth == 8:
+                block = block.astype(np.uint16) * 256
+            else:
+                block = block.astype(np.uint16)
+    
+            # rotation éventuelle
+            if flag_rotate:
+                block = np.flip(block.swapaxes(1, 2), axis=1)
+    
+            # --- ici tu fais tes calculs frame par frame ---
+            for j in range(n_to_read):
+                frame_abs_index = frame_index + j
+                img = block[j]
+    
+                # si flag_display vrai montre trame en temps reel       
+                if flag_display :
+                    if image_queue == None :
+                        cv2.imshow('image', img)
+                        if cv2.waitKey(1)==27:
+                            cv2.destroyAllWindows()
+                            sys.exit()
+                    else :
+                        image_queue.put(("image", img, FrameCount))
+                        
+                # Boucle sur les decalages
+                i=0
+             
+                # --- Précalcul des coefficients pour une fenêtre de 7 points et polyorder=2 ---
+                # filtre polynomiale antialiasing sans reduction de la resolution spectrale
+                coeffs = np.array([-2, 3, 6, 7, 6, 3, -2], dtype=np.float32) / 21.0
+                offsets = np.array([-1.5,-1,-0.5,0,0.5, 1,1.5])
+                    
+                for i in range(0,len(range_dec)): 
+                    
+                    I_samples = np.zeros((ih, len(offsets)), dtype=np.float32)
+                   
+                    
+                    for idx, dx in enumerate(offsets):
+                        # Position fractionnaire
+                        pos = x_floors[i] + dx +t
+                        pos_floor = np.floor(pos).astype(int)
+                        frac = pos - pos_floor
+                        try :
+                            pt0=np.float64(img[np.arange(ih), pos_floor-1])
+                            pt1=np.float64(img[np.arange(ih), pos_floor])
+                            pt2=np.float64(img[np.arange(ih), pos_floor+1])
+                            pt3=np.float64(img[np.arange(ih), pos_floor+2])
+                            img4=[pt0,pt1,pt2,pt3]
+                            I_samples[:, idx] = catmull_rom_vectorized(img4, frac)
+                        except :
+                            # a priori erreur catchée par bornes
+                            I_samples[:,idx]= pt1
+                        
+                    
+                    IntensiteRaie = I_samples @ coeffs
+                    # IntensiteRaie = I_samples[:,3] si on enleve l'antialiasing
+                    
+                                
+                    # converti en 16 bits
+                    IntensiteRaie=np.clip(IntensiteRaie,0,65535).astype(np.uint16)
+        
+                    # Ajoute au tableau disk 
+                    Disk[i][:,frame_abs_index]=IntensiteRaie
+          
+                
+                # Display reconstruction of the disk refreshed every 30 lines
+                refresh_lines=int(20)
+                if flag_display and frame_abs_index %refresh_lines == 0 :
+                    disk_display=[]
+                    disk_display = np.copy(Disk[0]).astype(np.uint32)*2
+                    disk_display=np.clip(disk_display,0,65535).astype(np.uint16)
+                    if image_queue == None :
+                        cv2.imshow ('disk', disk_display)
+                        if cv2.waitKey(1) == 27:             # exit if Escape is hit
+                                cv2.destroyAllWindows()
+                                sys.exit()
+                    else : 
+                        image_queue.put(("disk",disk_display, FrameCount))
+    
+            # on passe au chunk suivant
+            frame_index += n_to_read
+    
+           
 
     # on signale la fin de la transmission dans la queue
     if image_queue is not None :
@@ -843,7 +911,7 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             logme("Option Reduction de Bruit")
         else :
             logme("Noise reduction option")
-    
+
     
     # Sauve fichier disque reconstruit pour affichage image raw en check final
     hdr['NAXIS1']=FrameCount-1
@@ -900,210 +968,213 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
         
         logme(' ')
         logme(msg[k])
-        """
-        --------------------------------------------------------------------
-        Calcul des mauvaises lignes et de la correction geometrique
-        --------------------------------------------------------------------
-        """
         
         iw=Disk[k].shape[1]
         ih=Disk[k].shape[0]
         img=Disk[k]
         
+        flag_noline = True
+        
+        if flag_noline == False :
+            """
+            --------------------------------------------------------------------
+            Calcul des mauvaises lignes et de la correction geometrique
+            --------------------------------------------------------------------
+            """       
+        
+            #print("bad lines")
+            y1,y2=detect_bord (img, axis=1,offset=5, flag_disk=True)    # bords verticaux
+            
+            #detection de mauvaises lignes
+            
+            # somme de lignes projetées sur axe Y
+            #img_blur=cv2.GaussianBlur(img,(3,3),0)
+            ysum_img=np.mean(img,1)
+            
+            
+            # ne considere que les lignes du disque avec marge de 15 lignes 
+            marge=15
+            ysum=ysum_img[y1+marge:y2-marge]
+            
+            # choix methode par fit polynome et division
+            # ou detection des lignes et mediane 
+            methode_poly= False
+            debug=False
+     
+            # filtrage sur fenetre de 41 pixels, polynome ordre 3 (etait 101 avant)
+            yc=savgol_filter(ysum,41, 3)
+            """
+            #polynome
+            xval=np.arange(0,y2-y1-2*marge,1)
+            p = np.polyfit(xval,ysum,6)
+            fit=[]
+            for x in xval:
+                fitv = p[0]*x**6+p[1]*x**5+p[2]*x**4+p[3]*x**3+p[4]*x**2+p[5]*x+p[6]
+                fit.append(fitv)
+            #print('Coef poly ',p)
+            #fp = ysum-np.array(fit)
+            yc=np.array(fit)
+            """
+            if debug :
+                # affichage debug
+                plt.plot(yc)
+                plt.plot(ysum)
+                plt.show()
+          
+        
+            # divise le profil somme par le profil filtré pour avoir les hautes frequences
+            hcol1=np.divide(ysum,yc)
+            hcol=np.copy(hcol1)
     
-        #print("bad lines")
-        y1,y2=detect_bord (img, axis=1,offset=5, flag_disk=True)    # bords verticaux
-        
-        #detection de mauvaises lignes
-        
-        # somme de lignes projetées sur axe Y
-        #img_blur=cv2.GaussianBlur(img,(3,3),0)
-        ysum_img=np.mean(img,1)
-        
-        
-        # ne considere que les lignes du disque avec marge de 15 lignes 
-        marge=15
-        ysum=ysum_img[y1+marge:y2-marge]
-        
-        # choix methode par fit polynome et division
-        # ou detection des lignes et mediane 
-        methode_poly= False
-        debug=False
- 
-        # filtrage sur fenetre de 41 pixels, polynome ordre 3 (etait 101 avant)
-        yc=savgol_filter(ysum,41, 3)
-        """
-        #polynome
-        xval=np.arange(0,y2-y1-2*marge,1)
-        p = np.polyfit(xval,ysum,6)
-        fit=[]
-        for x in xval:
-            fitv = p[0]*x**6+p[1]*x**5+p[2]*x**4+p[3]*x**3+p[4]*x**2+p[5]*x+p[6]
-            fit.append(fitv)
-        #print('Coef poly ',p)
-        #fp = ysum-np.array(fit)
-        yc=np.array(fit)
-        """
-        if debug :
-            # affichage debug
-            plt.plot(yc)
-            plt.plot(ysum)
-            plt.show()
-      
     
-        # divise le profil somme par le profil filtré pour avoir les hautes frequences
-        hcol1=np.divide(ysum,yc)
-        hcol=np.copy(hcol1)
-
-
-        # met à zero les pixels dont l'intensité est inferieur à 1.02 (2%)
-        hcol[abs(hcol1-1)<= 0.02]=0
-
-
-        if debug :
-            # affichage debug
-            plt.plot(hcol1)
-            plt.plot(hcol)
-            plt.show()
-
-        # tableau de zero en debut et en fin pour completer le tableau du disque
-        a=[0]*(y1+marge)
-        b=[0]*(ih-y2+marge)
-        hcol=np.concatenate((a,hcol,b))
-        
-        if debug :
-            # affichage debug
-            plt.plot(hcol1)
-            plt.plot(hcol)
-            plt.show()
-        
-
-        # creation du tableau d'indice des lignes a corriger
-        l_col=np.where(hcol!=0)
-        listcol=l_col[0]
-        #print(listcol)
-        
-        # doit etre abandonné
-        # demarre a x constant et gain trop fort
-        # et poly ne convient pas pour disque tronqué
+            # met à zero les pixels dont l'intensité est inferieur à 1.02 (2%)
+            hcol[abs(hcol1-1)<= 0.02]=0
     
-        if methode_poly:
-            # on ne clamp pas le profil
-            hcol=1+((ysum-yc)/yc)
-            hcol[hcol-1>-0.03]=1
+    
+            if debug :
+                # affichage debug
+                plt.plot(hcol1)
+                plt.plot(hcol)
+                plt.show()
+    
             # tableau de zero en debut et en fin pour completer le tableau du disque
-            a=[1]*(y1+marge)
-            b=[1]*(ih-y2+marge)
+            a=[0]*(y1+marge)
+            b=[0]*(ih-y2+marge)
             hcol=np.concatenate((a,hcol,b))
             
             if debug :
-                #affichage debug
+                # affichage debug
+                plt.plot(hcol1)
                 plt.plot(hcol)
-                plt.title('hcol_poly')
                 plt.show()
             
-            # Geénère tableau image de flat 
-            flat_hf=[]
-            for i in range(0,iw):
-                flat_hf.append(hcol)
+    
+            # creation du tableau d'indice des lignes a corriger
+            l_col=np.where(hcol!=0)
+            listcol=l_col[0]
+            #print(listcol)
+            
+            # doit etre abandonné
+            # demarre a x constant et gain trop fort
+            # et poly ne convient pas pour disque tronqué
+        
+            if methode_poly:
+                # on ne clamp pas le profil
+                hcol=1+((ysum-yc)/yc)
+                hcol[hcol-1>-0.03]=1
+                # tableau de zero en debut et en fin pour completer le tableau du disque
+                a=[1]*(y1+marge)
+                b=[1]*(ih-y2+marge)
+                hcol=np.concatenate((a,hcol,b))
                 
-            np_flat_hf=np.asarray(flat_hf)
-            flat_hf = np_flat_hf.T
+                if debug :
+                    #affichage debug
+                    plt.plot(hcol)
+                    plt.title('hcol_poly')
+                    plt.show()
+                
+                # Geénère tableau image de flat 
+                flat_hf=[]
+                for i in range(0,iw):
+                    flat_hf.append(hcol)
+                    
+                np_flat_hf=np.asarray(flat_hf)
+                flat_hf = np_flat_hf.T
+                
+                # Evite les divisions par zeros...
+                flat_hf[flat_hf==0]=1
+                
+                # somme des lignes mauvaises le long de x
+                #hsum=np.mean(img[listcol],0)
+                m=np.mean(img,0)
+                hsum=np.max(m)/m
+                hsum[hsum>2]=1
+                #hsum=savgol_filter(hsum,31, 3)
+                
+                if debug :
+                    plt.plot(hsum)
+                    plt.show()
+                
+                # flat pondere en x 
+                
+                for i in listcol :
+                    flat_hf[i,:]=flat_hf[i,:]/hsum
+                   
+                if debug :
+                    # affichage debug
+                    plt.imshow(flat_hf)
+                    plt.show()
+                    
+                # Divise image par le flat
+                b=np.divide(img,flat_hf)
+                img=np.array(b, dtype='uint16')
+                
+            else :
+                origimg=np.copy(img)
+                # correction de lignes par filtrage median 13 lignes, empririque
+                if debug : print(listcol)
+                lines=[]
+                lines_collection=[]
+                try :
+                    lines.append(listcol[0])
+                    for i in range(1,len(listcol)-1):
+                        if listcol[i]-listcol[i-1] ==1 :
+                            lines.append(listcol[i])
+                        else :
+                            lines_collection.append(lines)
+                            lines=[]
+                            lines.append(listcol[i])
+                    if debug : print(lines_collection)
+                except:
+                    pass
+                
+                for c in listcol:
+                    c=c
+                    m=origimg[c-11:c+10,] #now refer to original image
+                    # calcul de la mediane sur 11-10 lignes de part et d'autres
+                    # suppression de 2 colonnes en debut et fin qui peuvent être à zéro
+                    s=np.median(m[:,2:-2],0)
+    
+                    #on prepare un patch de 2 valeurs 
+                    a=[m[0][3],m[0][-3]]
+                    #on ajoute les patchs
+                    s=np.concatenate((a,s,a))
+                    
+                    #on remplace la ligne defectueuse
+                    #s=65000 #pour visualiser la ligne idetifiée comme defectueuse
+                    img[c:c+1,]=s #fix bug ecart une ligne
+                
+              
+                """
+                for c in lines_collection :
+                    d=2
+                    m1 = origimg[c[0]-d,]
+                    m2 = origimg[c[len(c)-1]+d,]
+                    m=np.array([m1,m2])
+                    # suppression de 2 colonnes en debut et fin qui peuvent être à zéro
+                    s=np.median(m[:,2:-2],0)
+                    #on prepare un patch de 2 valeurs 
+                    a=[s[0],s[-1]]
+                    #on ajoute les patchs
+                    s=np.concatenate((a,s,a))
+                    
+                    #on remplace la ligne defectueuse
+                    #s=0
+                    for i in c :
+                        img[i:i+1,]=s #fix bug ecart une ligne
+                """ 
+                
+            debug=False
             
-            # Evite les divisions par zeros...
-            flat_hf[flat_hf==0]=1
-            
-            # somme des lignes mauvaises le long de x
-            #hsum=np.mean(img[listcol],0)
-            m=np.mean(img,0)
-            hsum=np.max(m)/m
-            hsum[hsum>2]=1
-            #hsum=savgol_filter(hsum,31, 3)
-            
-            if debug :
-                plt.plot(hsum)
-                plt.show()
-            
-            # flat pondere en x 
-            
-            for i in listcol :
-                flat_hf[i,:]=flat_hf[i,:]/hsum
-               
             if debug :
                 # affichage debug
-                plt.imshow(flat_hf)
+                plt.plot(ysum_img)
+                plt.plot(np.mean(img,1))
+                plt.title('avant-apres')
                 plt.show()
-                
-            # Divise image par le flat
-            b=np.divide(img,flat_hf)
-            img=np.array(b, dtype='uint16')
-            
-        else :
-            origimg=np.copy(img)
-            # correction de lignes par filtrage median 13 lignes, empririque
-            if debug : print(listcol)
-            lines=[]
-            lines_collection=[]
-            try :
-                lines.append(listcol[0])
-                for i in range(1,len(listcol)-1):
-                    if listcol[i]-listcol[i-1] ==1 :
-                        lines.append(listcol[i])
-                    else :
-                        lines_collection.append(lines)
-                        lines=[]
-                        lines.append(listcol[i])
-                if debug : print(lines_collection)
-            except:
-                pass
-            
-            for c in listcol:
-                c=c
-                m=origimg[c-11:c+10,] #now refer to original image
-                # calcul de la mediane sur 11-10 lignes de part et d'autres
-                # suppression de 2 colonnes en debut et fin qui peuvent être à zéro
-                s=np.median(m[:,2:-2],0)
-
-                #on prepare un patch de 2 valeurs 
-                a=[m[0][3],m[0][-3]]
-                #on ajoute les patchs
-                s=np.concatenate((a,s,a))
-                
-                #on remplace la ligne defectueuse
-                #s=65000 #pour visualiser la ligne idetifiée comme defectueuse
-                img[c:c+1,]=s #fix bug ecart une ligne
-            
-          
-            """
-            for c in lines_collection :
-                d=2
-                m1 = origimg[c[0]-d,]
-                m2 = origimg[c[len(c)-1]+d,]
-                m=np.array([m1,m2])
-                # suppression de 2 colonnes en debut et fin qui peuvent être à zéro
-                s=np.median(m[:,2:-2],0)
-                #on prepare un patch de 2 valeurs 
-                a=[s[0],s[-1]]
-                #on ajoute les patchs
-                s=np.concatenate((a,s,a))
-                
-                #on remplace la ligne defectueuse
-                #s=0
-                for i in c :
-                    img[i:i+1,]=s #fix bug ecart une ligne
-            """ 
-            
-        debug=False
-        
-        if debug :
-            # affichage debug
-            plt.plot(ysum_img)
-            plt.plot(np.mean(img,1))
-            plt.title('avant-apres')
-            plt.show()
-            # test sauve image apres correction pour debug
-            DiskHDU=fits.PrimaryHDU(img,header=hdr)
-            DiskHDU.writeto(basefich+img_suff[k]+'_line.fits',overwrite='True')
+                # test sauve image apres correction pour debug
+                DiskHDU=fits.PrimaryHDU(img,header=hdr)
+                DiskHDU.writeto(basefich+img_suff[k]+'_line.fits',overwrite='True')
     
         
         """
@@ -1454,9 +1525,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             img2=np.copy(NewImg)
 
                    
-        sfit_onlyfinal=True
+        debug_tilt=False
         
-        if sfit_onlyfinal==False:
+        if debug_tilt==True:
             # sauvegarde en fits de l'image tilt
             img2=np.array(img2, dtype='uint16')
             DiskHDU=fits.PrimaryHDU(img2,header=hdr)

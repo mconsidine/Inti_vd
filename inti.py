@@ -3,7 +3,7 @@
 INTI application interface Qt
 
 Recontruction automatique d'une image ou de plusieurs images monochromatiques 
-à partir d'un fichier video du spectre solaire
+à partir d'un ou plusieurs fichiers video du spectre solaire
  
 Author : Valérie Desnoux
 
@@ -28,6 +28,7 @@ import astropy.time
 import math
 import numpy as np
 from PIL import Image
+#import Inti_recon_bisector as sol
 import Inti_recon as sol
 from Inti_functions import *
 import config as cfg
@@ -58,16 +59,24 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
-Version 1.1 Wip
-- replace ',' par '.' pour float (pas sure que cela suffise pour saveini et validators)
+Version 7.0.2
+- gestion gros fichier SER
+- sauve flag correction transversalium helium
+- interdit +20%Hor si pas autocrop
+- passage en decimal de cont et dop dans onglet doppler et free_shift1 et free_shift2
 
-Version 1.0
+Version 7.0.1 
+- replace ',' par '.' pour float (pas sure que cela suffise pour saveini et validators)
+- gestion overflow fichier ser très gros
+
+Version 7.0
 - correction bug angle P annuler si flags weak et trans
 - mise en route de check version
 - suppression saut de ligne sur message de creation inti.yaml
 
 Version 6.9+ 
 - correction bug trad 
+
 Version 6.9 - antibes 5 sept 2025
 - ajout anti-aliasing polynomial
 - recrée un fichier log au nom de l'image enregistrée
@@ -149,8 +158,9 @@ Version 6.5c - 16 avril 2025
 - pas angle P auto au départ, toujours premier onglet, no more edition polynome
 """
 
-# DONE : Label blanc sur fond clair dans entete_dlg
-# DONE : gestion des , ou . en validation
+
+# TODO : reduc bruit ajustable
+# TODO : stop dans thread process
 # TODO : memoriser les positions des fenetres images si double écran
 
 
@@ -163,7 +173,7 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="7.0.1"
+        self.version ="7.0.2"
         #iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
@@ -309,6 +319,7 @@ class main_wnd_UI(QMainWindow) :
         self.ui.ori_grid_format_btn.clicked.connect(self.ori_grid_format)
         self.ui.cfg_files_btn.clicked.connect(self.cfg_files_to_save)
         self.ui.cfg_cropmanu_btn.clicked.connect(self.crop_manu)
+        self.ui.section_autocrop_chk.clicked.connect(self.crop_clicked)
         
         # doppler
         # -------------------------------------------------------------------
@@ -317,6 +328,7 @@ class main_wnd_UI(QMainWindow) :
         self.ui.dop_profil_btn.clicked.connect(self.dop_profil)
         self.ui.dop_calc_btn.clicked.connect(self.inti_calc)
         self.ui.dop_offset_text.setValidator(validator_2dec)
+        self.ui.dop_conti_shift_text.setValidator(validator_2dec)
         
         # free
         # -------------------------------------------------------------------
@@ -324,6 +336,8 @@ class main_wnd_UI(QMainWindow) :
         self.ui.inti_calc_btn_3.clicked.connect (self.inti_calc)
         self.ui.free_corona_chk.stateChanged.connect (self.corona_clicked)
         self.ui.free_shift_text.setValidator(validator_2dec)
+        self.ui.free_shift1_text.setValidator(validator_2dec)
+        self.ui.free_shift2_text.setValidator(validator_2dec)
         
         # magnet
         # -------------------------------------------------------------------
@@ -528,7 +542,7 @@ class main_wnd_UI(QMainWindow) :
                     'win_posx':300, 'win_posy':200, 'screen_scale':0,'observer':'', 'instru':'','site_long':0, 'site_lat':0,
                     'angle P':0,'contact':'','wavelength':0, 'wave_label':'Manuel', 'inversion NS':0, 'inversion EW':0,
                     'autocrop':1,'ext20pct':0, 'pos fente min':0, 'pos fente max':0,'trame couronne1':-25, 'trame couronne2':-5,
-                    "zeeman_shift":0, "reduction bruit":0, 'grid disk':'on', 'lang' :'FR', 'correction He':1, 'angP auto': 0,
+                    "zeeman_shift":0, "reduction bruit":0, 'grid disk':'on', 'lang' :'FR', 'correction He':0, 'angP auto': 0,
                     "zoom":0, "cont_only":0, "dop_color_force":0}
     
         poly=[]
@@ -635,6 +649,12 @@ class main_wnd_UI(QMainWindow) :
         else :
             self.free_shift = my_dictini['free_shift']
             
+        if 'correction_He' not in my_dictini:
+            my_dictini['correction He']=0
+            self.Flags["FREE_TRANS"] = 0 
+        else :
+            self.Flags["FREE_TRANS"] = my_dictini['correction He']
+            
             
         if 'zeeman_shift' not in my_dictini:
             my_dictini['zeeman_shift'] = 0 #decalage en mode zeeman
@@ -691,14 +711,9 @@ class main_wnd_UI(QMainWindow) :
             if LG_str !='FR' : cfg.LG=2
             
                     
-        #self.param=[my_dictini['pos fente min'],my_dictini['pos fente max'],my_dictini['crop fixe hauteur'],my_dictini['crop fixe largeur']]
-        #force à 0 le crop fixe car gerer par une interface
+        
         self.param=[my_dictini['pos fente min'],my_dictini['pos fente max'],0,0,my_dictini['trame couronne1'],my_dictini['trame couronne2']]
-        #win_pos=(w_posx,w_posy)
-        """
-        self.data_entete=[my_dictini['observer'], my_dictini['instru'],float(my_dictini['site_long']),float(my_dictini['site_lat']),my_dictini['contact'],
-                     my_dictini['wavelength'],my_dictini['wave_label']]
-        """
+
         self.Flags=Flags
         self.my_dictini=my_dictini
         self.polynome = poly
@@ -718,6 +733,7 @@ class main_wnd_UI(QMainWindow) :
         self.ui.inti_dir_lbl.setText(self.working_dir)
         self.ui.dop_groupbox.setChecked(self.Flags['Contonly'])
         self.ui.dop_color_force_chk.setChecked(self.Flags['dop_color_force'])
+        self.ui.free_trans_helium_chk.setChecked(self.Flags["FREE_TRANS"])
         
         
         self.ui.db_observer_text.setText(self.bass_entete['observer'])
@@ -751,8 +767,8 @@ class main_wnd_UI(QMainWindow) :
         #data_entete=self.data_entete
         # recupère les données de l'UI !!! shift 1 et 2 changent si free mode
         self.Shift.append(float(conv(self.ui.inti_shift_text.text())))
-        self.Shift.append(int((self.ui.dop_shift_text.text())))
-        self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
+        self.Shift.append(float((self.ui.dop_shift_text.text())))
+        self.Shift.append(float(self.ui.dop_conti_shift_text.text()))
         self.Shift.append(float(conv(self.ui.free_shift_text.text())))
         self.Shift.append(float(conv(self.ui.magnet_shift_text.text())))
         #self.polynome =[0,0,0] # !!! 
@@ -781,6 +797,7 @@ class main_wnd_UI(QMainWindow) :
         self.Flags['h20percent'] = self.ui.inti_h20_radio.isChecked()
         self.Flags['Contonly'] = self.ui.dop_groupbox.isChecked()
         self.Flags['dop_color_force'] = self.ui.dop_color_force_chk.isChecked()
+        self.Flags["FREE_TRANS"] = self.ui.free_trans_helium_chk.isChecked()
         
         
         self.my_dictini['lang']=self.langue
@@ -816,18 +833,16 @@ class main_wnd_UI(QMainWindow) :
         self.my_dictini['reduction_bruit'] = Flags['NOISEREDUC']
         self.my_dictini['angP auto']= self.ui.section_angP_auto_chk.isChecked()
         
+        
         #if Flags['WEAK']:
         self.my_dictini['free_autopoly']=Flags['FREE_AUTOPOLY']
         self.my_dictini['zee_autopoly']=Flags['ZEE_AUTOPOLY']
-        self.my_dictini['pos_free_blue']= int(self.ui.free_shift1_text.text())   # round(0+self.Shift[1])
-        self.my_dictini['pos_free_red']= int(self.ui.free_shift2_text.text())    # round(0+self.Shift[2])
-        #self.my_dictini['pos_free_blue']=round(0+float(self.ui.free_shift1_text.text()))
-        #self.my_dictini['pos_free_red']=round(0+float(self.ui.free_shift2_text.text()))
+        self.my_dictini['pos_free_blue']= float(self.ui.free_shift1_text.text())   # round(0+self.Shift[1])
+        self.my_dictini['pos_free_red']= float(self.ui.free_shift2_text.text())    # round(0+self.Shift[2])
         self.my_dictini['free_shift'] = float(self.ui.free_shift_text.text()) #self.Shift[3]
-        #self.my_dictini['free_shift'] = float(self.ui.free_shift_text.text())
        
-        self.my_dictini['dec doppler']= int(self.ui.dop_shift_text.text())    # self.Shift[1]
-        self.my_dictini['dec cont']= int(self.ui.dop_conti_shift_text.text()) # self.Shift[2]
+        self.my_dictini['dec doppler']= float(self.ui.dop_shift_text.text())    # self.Shift[1]
+        self.my_dictini['dec cont']= float(self.ui.dop_conti_shift_text.text()) # self.Shift[2]
         self.my_dictini['cont_only']=self.Flags['Contonly']
         self.my_dictini['dop_color_force']= self.Flags['dop_color_force']
 
@@ -835,7 +850,7 @@ class main_wnd_UI(QMainWindow) :
         self.my_dictini['angle P']=0 # ne conserve pas angle P pour eviter confusion
         self.my_dictini['ratio_sysx']=self.ratio_fixe
 
-        self.my_dictini['correction He']= Flags['FREE_TRANS']
+        self.my_dictini['correction He']= self.Flags['FREE_TRANS']
         
         if Flags['WEAK']==False and Flags['POL']==False:
             self.my_dictini['poly_slit_a']=float(self.polynome[0])
@@ -1096,7 +1111,7 @@ class main_wnd_UI(QMainWindow) :
                     # ------------------------------------------------------------------------------------                     
                     # appel au module d'extraction, reconstruction et correction
                     # ------------------------------------------------------------------------------------     
-                    debug_nothread = False  # mode debug, non thread pour accepter les points d'arret
+                    debug_nothread = True  # mode debug, non thread pour accepter les points d'arret
                     
                     # change le fond du button pour indiquer qu'on est en traitement
                     self.ui.inti_go_btn.setStyleSheet ('background-color: rgb(40,0,0);')
@@ -1329,10 +1344,12 @@ class main_wnd_UI(QMainWindow) :
             if self.Shift[0] ==0 :
                 ImgFile=self.basefich+'_recon.fits'   
             else :
-                ImgFile=self.basefich+'_dp'+str(int(self.Shift[0]))+'_cont.fits'
-                suff[1]='_dp'+str(int(self.Shift[0]))+'_cont'
+                v_str=str.replace(self.Shift[0],".","_")
+                ImgFile=self.basefich+'_dp'+v_str+'_cont.fits'
+                suff[1]='_dp'+v_str+'_cont'
         else :
-            ImgFile=self.basefich+'_dp'+str(range_dec[0])+'_recon.fits'
+            dp_str="_dp"+str.replace(str(range_dec[0]),".","_")
+            ImgFile=self.basefich+'_dp'+dp_str+'_recon.fits'
            
             
         hdulist = fits.open(ImgFile, memmap=False)
@@ -1410,7 +1427,8 @@ class main_wnd_UI(QMainWindow) :
                 disks.append(frame_continuum)
                 
                 # sauvegarde en png de continuum
-                cv2.imwrite(self.basefich+'_dp'+str(range_dec[len(range_dec)-1])+'_cont.png',frame_continuum)
+                v_str = str.replace(str(range_dec[len(range_dec)-1]),".","_")
+                cv2.imwrite(self.basefich+'_dp'+v_str+'_cont.png',frame_continuum)
             
             if self.Flags["DOPCONT"] and self.ui.dop_groupbox.isChecked():
                 #on se tente une image couleur, en 8 bits
@@ -1658,9 +1676,11 @@ class main_wnd_UI(QMainWindow) :
                 suff[i] = suff[i]+dp_str
             if suff[i] == 'cont' :
                 if len(range_dec)==1 :
-                    suff[i] = 'dp'+str(int(self.Shift[0]))+'_cont'
+                    v_str=str.replace(str(self.Shift[0]),'.','_')
+                    suff[i] = 'dp'++'_cont'
                 else :
-                    suff[i] = 'dp'+str(range_dec[len(range_dec)-1])+'_cont'
+                    v_str=str.replace(str(range_dec[len(range_dec)-1]),'.','_')
+                    suff[i] = 'dp'+v_str+'_cont'
             self.img_list[-1].set_title(self.racine_name(self.short_name(serfile))+'_'+suff[i])
             self.img_list[-1].set_file_name(self.working_dir+os.sep+'_'+self.racine_name(self.short_name(serfile))+'_'+suff[i]+'.png')
             self.img_list[-1].on_ferme.connect(self.img_allclose)
@@ -2011,8 +2031,8 @@ class main_wnd_UI(QMainWindow) :
             poly.append(float(self.ui.free_b_text.text()))
             poly.append(float(self.ui.free_c_text.text()))
             self.Shift.append(0)
-            self.Shift.append(int(int(self.ui.free_shift1_text.text())-0)) # decalage free bleu ou decalage 1
-            self.Shift.append(int(int(self.ui.free_shift2_text.text())-0))
+            self.Shift.append(float(self.ui.free_shift1_text.text())) # decalage free bleu ou decalage 1
+            self.Shift.append(float(self.ui.free_shift2_text.text()))
             self.Shift.append(to_float(conv(self.ui.free_shift_text.text())))
             self.Flags["FORCE"]=self.ui.free_tilt_chk.isChecked()
             
@@ -2056,8 +2076,9 @@ class main_wnd_UI(QMainWindow) :
             self.Shift.append(0)   
         else :
             self.Shift.append(float(self.ui.inti_shift_text.text()))
-        self.Shift.append(int(self.ui.dop_shift_text.text()))
-        self.Shift.append(int(self.ui.dop_conti_shift_text.text()))
+        
+        self.Shift.append(float(self.ui.dop_shift_text.text()))
+        self.Shift.append(float(self.ui.dop_conti_shift_text.text()))
 
         
         if self.Flags["POL"]:
@@ -2527,6 +2548,14 @@ class main_wnd_UI(QMainWindow) :
         self.myconfig_dlg=config_dialog()
         self.myconfig_dlg.set_files_to_save(self.files_to_save)
         self.myconfig_dlg.ui.finished.connect(self.get_files_to_save)
+
+    def crop_clicked (self):
+        if self.ui.section_autocrop_chk.isChecked():
+            self.ui.inti_h20_radio.setEnabled(True)
+        else :
+            self.ui.inti_h20_radio.setChecked(False)
+            self.ui.inti_h20_radio.setEnabled(False)
+
 
     def corona_clicked(self) :
         # si on passe en mode couronne cela n'a de sens que si le mode poly auto est actif et desactive helium
