@@ -152,7 +152,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
     
     if shift != 0 :
         #add shift value in filename to not erase previous file
-        basefich=basefich+'_dp'+str(int(shift)) # ajout '_' pour fichier en tete d'explorer
+        dp_str= str(shift)
+        dp_str="_dp"+str.replace(dp_str,".","_")
+        basefich=basefich+dp_str # ajout '_' pour fichier en tete d'explorer
     
     # ouverture du fichier ser
 
@@ -927,7 +929,9 @@ def solex_proc(serfile,Shift, Flags, ratio_fixe,ang_tilt, poly, data_entete,ang_
             dp_str="_dp"+str.replace(dp_str,".","_")
             img_suff.append(dp_str)
         else:
+            # le suffixe dp si shift non nul a deja été ajouté dans baseline
             img_suff.append('')
+            
             DiskHDU.writeto("Complements"+os.path.sep+basefich+img_suff[i]+'_raw.fits',overwrite='True')
 
     if flag_display and image_queue == None:

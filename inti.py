@@ -173,7 +173,7 @@ class main_wnd_UI(QMainWindow) :
         #super().__init__(parent)
         super(main_wnd_UI, self).__init__()
 
-        self.version ="7.0.2"
+        self.version ="7.0.3"
         #iv = ImageView # force le load d'ImageView avant QUILoader
         # ne change rien...
         
@@ -320,6 +320,7 @@ class main_wnd_UI(QMainWindow) :
         self.ui.cfg_files_btn.clicked.connect(self.cfg_files_to_save)
         self.ui.cfg_cropmanu_btn.clicked.connect(self.crop_manu)
         self.ui.section_autocrop_chk.clicked.connect(self.crop_clicked)
+        self.ui.db_wave_text.currentIndexChanged.connect(self.db_print_wave)
         
         # doppler
         # -------------------------------------------------------------------
@@ -892,7 +893,9 @@ class main_wnd_UI(QMainWindow) :
     def add_text(self, text) :
         self.ui.log_edit.append(text)
         self.ui.log_edit.moveCursor(QtGui.QTextCursor.End)
-        
+    
+    
+    
                
     def inti_open (self) :
         self.img_list =[]
@@ -1014,6 +1017,20 @@ class main_wnd_UI(QMainWindow) :
             print("Go")
             self.inti_go()
          
+    """
+    def stop_thread(self):
+        if self.worker:
+            print("Arrêt demandé...")
+            self.worker.stop()
+
+    def keyPressEvent(self, event):
+        #Intercepte la touche ESC pour arrêter le thread
+        if event.key() == Qt.Key_Escape:
+            self.stop_thread()
+        else:
+            super().keyPressEvent(event)
+    """
+    
     def inti_go(self) :
         
         self.t0=time.time()
@@ -1314,9 +1331,13 @@ class main_wnd_UI(QMainWindow) :
             if self.Shift[0] ==0 :
                 ImgFile=self.basefich_comple+'_raw.fits'   
             else :
-                ImgFile=self.basefich_comple+'_dp'+str(int(self.Shift[0]))+'_raw.fits'
+                dp_str= str(self.Shift[0])
+                dp_str="_dp"+str.replace(dp_str,".","_")
+                ImgFile=self.basefich_comple+dp_str+'_raw.fits'
         else:
-            ImgFile=self.basefich_comple+'_dp'+str(self.range_dec[0])+'_raw.fits'
+            dp_str= str(self.Shift[0])
+            dp_str="_dp"+str.replace(dp_str,".","_")
+            ImgFile=self.basefich_comple+dp_str+'_raw.fits'
         
         hdulist = fits.open(ImgFile, memmap=False)
         hdu=hdulist[0]
@@ -2212,6 +2233,7 @@ class main_wnd_UI(QMainWindow) :
         self.param[3] = L_val
         if H_val != '0' or L_val != '0' :
             self.ui.section_autocrop_chk.setStyleSheet('color: orange;')
+            self.ui.inti_h20_radio.setChecked(False)
         else :
             self.ui.section_autocrop_chk.setStyleSheet('color: ivory;')
         
@@ -2227,6 +2249,9 @@ class main_wnd_UI(QMainWindow) :
         self.myentete_dlg=entete_dialog(self.bass_entete)
         self.myentete_dlg.ui.finished.connect(self.get_entete)
         
+    def db_print_wave (self) :
+        index= self.ui.db_wave_text.currentIndex()
+        print(self.list_wave[1][index])
     
     def get_entete (self) :
         self.bass_entete = self.myentete_dlg.get_parameters()
@@ -3432,9 +3457,10 @@ class entete_dialog(QDialog):
         
         # signaux
         self.ui.BASS_ok_btn.clicked.connect(self.ok)
+        self.ui.db_wave_text.currentIndexChanged.connect(self.db_print_wave)
         
         # initialisations
-        self.list_wave=[['Manual','Ha','Ha2cb','Cah','Cah1v','Cak','Cak1v','HeID3'],[0,6562.762,6561.432,3968.469,3966.968,3933.663,3932.163,5877.3]]
+        self.list_wave=[['Manual','Ha','Ha2cb','Cah','Cah1v','Cak','Cak1v','HeID3'],[0,6562.762,6561.232,3968.469,3966.968,3933.663,3932.163,5877.3]]
         self.ui.db_wave_text.addItems(self.list_wave[0])
         
         # met à jour les champs collectés dans l'entete
@@ -3462,7 +3488,11 @@ class entete_dialog(QDialog):
 
 
         #self.ui.grid_ok_btn.clicked.connect(self.ui.accept)
-        self.ui.show()        
+        self.ui.show()
+        
+    def db_print_wave (self) :
+        index= self.ui.db_wave_text.currentIndex()
+        print(self.list_wave[1][index])
 
     def get_parameters(self):
         
@@ -3775,10 +3805,26 @@ class StdoutRedirector(QObject):
 #-----------------------------------------------------------------------------
 class Worker(QObject) :
     result_ready = Signal(object)
+    #finished = Signal()
+    
+    """
+    def __init__(self):
+        super().__init__()
+        self._running = True
+
+    
+    def stop(self):
+        # Demande l'arrêt du traitement
+        self._running = False
+    """
     
     def run (self, *args, **kwargs) :
+        #kwargs["stop_flag"] = lambda: not self._running
         result =sol.solex_proc (*args, **kwargs)
         self.result_ready.emit(result)
+        #self.finished.emit()
+    
+    
 
 # ----------------------------------------------------------------------------
 # class validateur de nombre decimaux
