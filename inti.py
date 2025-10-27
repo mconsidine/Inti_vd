@@ -59,6 +59,12 @@ import matplotlib.pyplot as plt #only for debug
 
 
 """
+Version 7.0.3
+- bug fix sur nom fichier dp, cont avec decalage decimal
+- affiche console valeur de la longueur d'onde selectionnée BASS2000
+- ajout dans inti_finctions detect_bord test si bords trop proche pour eviter lignes sombres
+- test si ligne très sombre dans image moyenne pour detection y1,y2 
+
 Version 7.0.2
 - gestion gros fichier SER
 - sauve flag correction transversalium helium

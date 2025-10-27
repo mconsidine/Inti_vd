@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 #import time
 import sys
-from scipy.ndimage import gaussian_filter1d, zoom
+from scipy.ndimage import gaussian_filter1d, zoom, median_filter
 from scipy.optimize import curve_fit
 #from scipy.signal import savgol_filter
 import ellipse as el
@@ -222,9 +222,26 @@ def detect_bord (img, axis, offset, flag_disk):
         ymean=gaussian_filter1d(ymean, 11)
         yth=np.gradient(ymean)
 
-        y1=yth.argmax()-offset
-        y2=yth.argmin()+offset
-
+        #y1=yth.argmax()-offset
+        #y2=yth.argmin()+offset
+        
+        # test si accroche sur ligne, ne detecte pas si disk < 2 * min_sep
+        # avec min_sep ecart entre bords de la ligne
+        i_max = np.argmax(yth)
+        i_min = np.argmin(yth)
+        min_sep = 40
+    
+        if abs(i_min - i_max) < min_sep:
+            yth2 = np.copy(yth)
+            yth2[i_min-min_sep//2: i_max+min_sep//2] = 0
+            # puis on recherche à nouveau les extrêmes
+            i_max = np.argmax(yth2)
+            i_min = np.argmin(yth2)
+            
+        y1 = i_max - offset
+        y2 = i_min + offset
+        
+        
         if y1<=12:
             y1=0
         if y2>=ih-12:
